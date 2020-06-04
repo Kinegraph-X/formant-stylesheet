@@ -62,7 +62,7 @@ var classConstructor = function(type, attributes) {
 
 	Object.defineProperty(AttributeList.prototype, 'linearize', {
 																	value : function() {
-																				var str = '', current = '', attrCount = Object.keys(this), c = 0;
+																				var str = '', current = '', attrCount = Object.keys(this).length, c = 0;
 																				for(prop in this) {
 																					c++;
 																					if (typeof this[prop] === 'string' || this[prop] instanceof Point) {

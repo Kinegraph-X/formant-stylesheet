@@ -29,6 +29,9 @@ var classConstructor = function(styleSheet) {
 	}
 
 	StyleSheetWrapper.prototype.addStyle = function(style) {
+		// prevent erroneous injection (raw attributeList, null, undefined, etc.)
+		if (!style || typeof style.id === 'undefined')
+			return;
 		this.rules[style.id] = {index : this.styleSheet.cssRules.length, rule : style.linearize()};
 		this.styleSheet.insertRule(style.linearize(), this.styleSheet.cssRules.length);
 	}
