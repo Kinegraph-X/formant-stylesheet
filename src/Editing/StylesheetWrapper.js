@@ -5,17 +5,51 @@
  * @returns self
  */
  
- 
+var Logger = require('src/tools/Logger');
 var factory = require('src/core/Factory');
+var Style = require('src/editing/Style');
 
-var classConstructor = function(styleSheet) {
+var classConstructor = function(stylesheet, rawDef) {
 	
-	StyleSheetWrapper = function(styleSheet) {
-		this.styleSheet = styleSheet;
+	var context = this.context;
+	var logger = Logger(context).getInstance();
+	
+	StylesheetWrapper = function(stylesheet, rawDef) {
+		this.objectType = 'StyleSheetWrapper';
 		this.rules = {};
+		
+		if (typeof stylesheet !== 'undefined' && stylesheet !== null)
+			this.stylesheet = stylesheet;
+		else if (stylesheet === null) {
+			if (typeof rawDef === 'undefined')
+				logger.error(this.objectType, 'undefined styleDef on raw stylesheet init');
+			else if (Array.isArray(rawDef)) {
+				var sheet = document.createElement('style');
+				document.head.appendChild(sheet);
+				this.stylesheet = sheet.sheet;
+				this.rawInitWithStyleDef(rawDef);
+			}
+			else {
+				logger.error(this.objectType, 'styleDef should be of type Array');
+			}
+		}
+	}
+	
+	StylesheetWrapper.prototype.rawInitWithStyleDef = function(rawDef) {
+		var self = this;
+		rawDef.forEach(function(def, key) {
+			var type = def.type || 'span';
+			var id = def.id;
+			if (typeof def.id === 'undefined' || !def.id.length)
+				return;
+			delete def.id;
+			delete def.type;
+			var style = Style(context).create(type, id, def);
+			self.addStyle(style);
+		});
 	}
 
-	StyleSheetWrapper.prototype.addStyles = function(styles) {
+	StylesheetWrapper.prototype.addStyles = function(styles) {
 		var self = this;
 		
 		if (typeof styles === 'object') {
@@ -28,15 +62,15 @@ var classConstructor = function(styleSheet) {
 		}
 	}
 
-	StyleSheetWrapper.prototype.addStyle = function(style) {
+	StylesheetWrapper.prototype.addStyle = function(style) {
 		// prevent erroneous injection (raw attributeList, null, undefined, etc.)
 		if (!style || typeof style.id === 'undefined')
 			return;
-		this.rules[style.id] = {index : this.styleSheet.cssRules.length, rule : style.linearize()};
-		this.styleSheet.insertRule(style.linearize(), this.styleSheet.cssRules.length);
+		this.rules[style.id] = {index : this.stylesheet.cssRules.length, rule : style.linearize()};
+		this.stylesheet.insertRule(style.linearize(), this.stylesheet.cssRules.length);
 	}
 
-	StyleSheetWrapper.prototype.removeStyles = function(styles) {
+	StylesheetWrapper.prototype.removeStyles = function(styles) {
 		var self = this;
 		if (typeof styles === 'object') {
 			$.each(styles, function(key, style) {
@@ -48,18 +82,18 @@ var classConstructor = function(styleSheet) {
 		}
 	}
 
-	StyleSheetWrapper.prototype.removeStyle = function(style) {
+	StylesheetWrapper.prototype.removeStyle = function(style) {
 		var index = this.getStyle(style);
-		self.styleSheet.deleteRule(this.rules[style.id].index);
+		self.stylesheet.deleteRule(this.rules[style.id].index);
 		delete this.rules[style.id];
 	}
 
-	StyleSheetWrapper.prototype.getStyle = function(style) {
+	StylesheetWrapper.prototype.getStyle = function(style) {
 		return this.rules[style.id].index;
 	}
 	
 	
-	return new StyleSheetWrapper(styleSheet);
+	return new StylesheetWrapper(stylesheet, rawDef);
 }
 
 
