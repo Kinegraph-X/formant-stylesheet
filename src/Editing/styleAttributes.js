@@ -6,7 +6,6 @@
  
 var factory = require('src/core/Factory');
  
-var classConstructor = function(type, attributes) {
 	
 	var Point  = function(type, x, y) {
 
@@ -84,6 +83,7 @@ var classConstructor = function(type, attributes) {
 	);
 	
 
+var classConstructor = function(type, attributes) {
 	return new AttributeList(type, attributes);
 }
 

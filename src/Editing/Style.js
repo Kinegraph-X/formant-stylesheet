@@ -14,8 +14,6 @@
 var factory = require('src/core/Factory');
 var StyleAttributes = require('src/editing/StyleAttributes');
 
-var classConstructor = function(type, id, attributes) { 
-
 	var Style = function(type, id, attributes) {
 		this.id = attributes.id || id;
 		this.index = NaN; 	// index in the CSSStyleSheet.CSSRules Array (shall not be set for a style constructor, but kept here as a reminder, as the stylesheetWrapper on addStyle() shall linearize the style and reference the actual index)
@@ -35,6 +33,7 @@ var classConstructor = function(type, id, attributes) {
 		styleSheet.deleteRule(this.index);
 	}
 
+var classConstructor = function(type, id, attributes) {
 	return new Style(type, id, attributes);
 }
 

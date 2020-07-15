@@ -9,10 +9,7 @@ var Logger = require('src/tools/Logger');
 var factory = require('src/core/Factory');
 var Style = require('src/editing/Style');
 
-var classConstructor = function(stylesheet, rawDef) {
-	
-	var context = this.context;
-	var logger = Logger(context).getInstance();
+	var logger;
 	
 	StylesheetWrapper = function(stylesheet, rawDef) {
 		this.objectType = 'StyleSheetWrapper';
@@ -93,8 +90,10 @@ var classConstructor = function(stylesheet, rawDef) {
 	}
 	
 	
+var classConstructor = function(stylesheet, rawDef) {
+	var context = this.context;
+	logger = Logger(context).getInstance();
 	return new StylesheetWrapper(stylesheet, rawDef);
 }
-
 
 module.exports = factory.Maker.getClassFactory(classConstructor);
