@@ -5,11 +5,11 @@
  * @returns self
  */
  
-var Logger = require('src/tools/Logger');
+var Logger = require('src/Error&Log/Logger');
 var factory = require('src/core/Factory');
 var Style = require('src/editing/Style');
 
-	var logger;
+	var context, logger;
 	
 	StylesheetWrapper = function(stylesheet, rawDef) {
 		this.objectType = 'StyleSheetWrapper';
@@ -35,6 +35,9 @@ var Style = require('src/editing/Style');
 	StylesheetWrapper.prototype.rawInitWithStyleDef = function(rawDef) {
 		var self = this;
 		rawDef.forEach(function(def, key) {
+			if (!self.stylesheet.ownerNode.hasAttributes())
+				self.stylesheet.ownerNode.setAttribute('class', def.id);
+			
 			var type = def.type || 'span';
 			var id = def.id;
 			if (typeof def.id === 'undefined' || !def.id.length)
@@ -91,7 +94,7 @@ var Style = require('src/editing/Style');
 	
 	
 var classConstructor = function(stylesheet, rawDef) {
-	var context = this.context;
+	context = this.context;
 	logger = Logger(context).getInstance();
 	return new StylesheetWrapper(stylesheet, rawDef);
 }

@@ -53,9 +53,10 @@ var factory = require('src/core/Factory');
 		}
 		
 		if (typeof attributes === 'object' && Object.keys(attributes).length) {
-			$.each(attributes, function(attr, value) {
-				this[attr] = value;
-			}.bind(this));
+			for(var prop in attributes) {
+				if (attributes.hasOwnProperty(prop))
+					this[prop] = attributes[prop];
+			};
 		}
 	}
 
