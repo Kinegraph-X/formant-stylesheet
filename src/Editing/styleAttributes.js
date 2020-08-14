@@ -66,10 +66,10 @@ var factory = require('src/core/Factory');
 																				for(prop in this) {
 																					c++;
 																					if (typeof this[prop] === 'string' || this[prop] instanceof Point) {
-																						if (typeof this[prop].length !== 'undefined')
+																						if (typeof this[prop].length !== 'undefined')	// string
 																							current = this[prop];
 																						else
-																							current = this[prop].linearize();
+																							current = this[prop].linearize();			// "Point" obj
 																						str += '\t' + prop.dromedarToHyphens() + ' : ' + current + ';';
 																					}
 																					if (c !== attrCount)

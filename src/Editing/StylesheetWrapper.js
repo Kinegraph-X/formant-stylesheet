@@ -11,20 +11,22 @@ var Style = require('src/editing/Style');
 
 	var context, logger;
 	
-	StylesheetWrapper = function(stylesheet, rawDef) {
+	StylesheetWrapper = function(rawDef, stylesheet, appendElem) {
 		this.objectType = 'StyleSheetWrapper';
 		this.rules = {};
 		
 		if (typeof stylesheet !== 'undefined' && stylesheet !== null)
 			this.stylesheet = stylesheet;
-		else if (stylesheet === null) {
+		else {
 			if (typeof rawDef === 'undefined')
 				logger.error(this.objectType, 'undefined styleDef on raw stylesheet init');
 			else if (Array.isArray(rawDef)) {
-				var sheet = document.createElement('style');
-				document.head.appendChild(sheet);
-				this.stylesheet = sheet.sheet;
+				this.styleElem = document.createElement('style');
+				document.head.appendChild(this.styleElem);
+				this.stylesheet = this.styleElem.sheet;
 				this.rawInitWithStyleDef(rawDef);
+				if (appendElem !== true)
+					this.styleElem.remove();
 			}
 			else {
 				logger.error(this.objectType, 'styleDef should be of type Array');
@@ -36,7 +38,7 @@ var Style = require('src/editing/Style');
 		var self = this;
 		rawDef.forEach(function(def, key) {
 			if (!self.stylesheet.ownerNode.hasAttributes())
-				self.stylesheet.ownerNode.setAttribute('class', def.id);
+				self.stylesheet.ownerNode.setAttribute('id', def.id);
 			
 			var type = def.type || 'span';
 			var id = def.id;
