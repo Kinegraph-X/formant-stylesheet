@@ -22,11 +22,12 @@ var Style = require('src/editing/Style');
 				logger.error(this.objectType, 'undefined styleDef on raw stylesheet init');
 			else if (Array.isArray(rawDef)) {
 				this.styleElem = document.createElement('style');
-				document.head.appendChild(this.styleElem);
+				if (appendElem === true)
+					document.head.appendChild(this.styleElem);
 				this.stylesheet = this.styleElem.sheet;
 				this.rawInitWithStyleDef(rawDef);
-				if (appendElem !== true)
-					this.styleElem.remove();
+//				if (appendElem !== true)
+//					this.styleElem.remove();
 			}
 			else {
 				logger.error(this.objectType, 'styleDef should be of type Array');
@@ -35,20 +36,23 @@ var Style = require('src/editing/Style');
 	}
 	
 	StylesheetWrapper.prototype.rawInitWithStyleDef = function(rawDef) {
-		var self = this;
+		var self = this, styleAsString = '';
+
 		rawDef.forEach(function(def, key) {
-			if (!self.stylesheet.ownerNode.hasAttributes())
-				self.stylesheet.ownerNode.setAttribute('id', def.id);
+			if (!self.styleElem.hasAttribute('name'))
+				self.styleElem.setAttribute('name', def.id);
 			
-			var type = def.type || 'span';
+			var type = def.type || '';
 			var id = def.id;
 			if (typeof def.id === 'undefined' || !def.id.length)
 				return;
 			delete def.id;
 			delete def.type;
 			var style = Style(context).create(type, id, def);
-			self.addStyle(style);
+//			self.addStyle(style);
+			styleAsString += style.linearize();
 		});
+		self.styleElem.innerHTML = styleAsString;
 	}
 
 	StylesheetWrapper.prototype.addStyles = function(styles) {
@@ -95,10 +99,10 @@ var Style = require('src/editing/Style');
 	}
 	
 	
-var classConstructor = function(stylesheet, rawDef) {
+var classConstructor = function(rawDef, stylesheet, appendElem) {
 	context = this.context;
 	logger = Logger(context).getInstance();
-	return new StylesheetWrapper(stylesheet, rawDef);
+	return new StylesheetWrapper(rawDef, stylesheet, appendElem);
 }
 
 module.exports = factory.Maker.getClassFactory(classConstructor);

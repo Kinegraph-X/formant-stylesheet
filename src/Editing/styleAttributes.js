@@ -63,7 +63,7 @@ var factory = require('src/core/Factory');
 	Object.defineProperty(AttributeList.prototype, 'linearize', {
 																	value : function() {
 																				var str = '', current = '', attrCount = Object.keys(this).length, c = 0;
-																				for(prop in this) {
+																				for(var prop in this) {
 																					c++;
 																					if (typeof this[prop] === 'string' || this[prop] instanceof Point) {
 																						if (typeof this[prop].length !== 'undefined')	// string

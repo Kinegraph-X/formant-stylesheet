@@ -22,7 +22,7 @@ var StyleAttributes = require('src/editing/StyleAttributes');
 	}
 
 	Style.prototype.linearize = function() {
-		return this.id + ' { ' + '\n' + this.attributes.linearize() + '\n' + '}';
+		return this.id + ' { ' + '\n' + this.attributes.linearize() + '\n' + '}\n';
 	}
 
 	Style.prototype.addToStyleSheet = function(styleSheet) {
