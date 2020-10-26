@@ -5,11 +5,11 @@
  * @returns self
  */
  
-var Logger = require('src/Error&Log/Logger');
+//var Logger = require('src/Error&Log/Logger');
 var factory = require('src/core/Factory');
 var Style = require('src/editing/Style');
 
-	var context, logger;
+	var context;
 	
 	StylesheetWrapper = function(rawDef, stylesheet, appendElem) {
 		this.objectType = 'StyleSheetWrapper';
@@ -19,7 +19,7 @@ var Style = require('src/editing/Style');
 			this.stylesheet = stylesheet;
 		else {
 			if (typeof rawDef === 'undefined')
-				logger.error(this.objectType, 'undefined styleDef on raw stylesheet init');
+				console.error(this.objectType, 'undefined styleDef on raw stylesheet init');
 			else if (Array.isArray(rawDef)) {
 				this.styleElem = document.createElement('style');
 				if (appendElem === true)
@@ -30,7 +30,7 @@ var Style = require('src/editing/Style');
 //					this.styleElem.remove();
 			}
 			else {
-				logger.error(this.objectType, 'styleDef should be of type Array');
+				console.error(this.objectType, 'styleDef should be of type Array');
 			}
 		}
 	}
@@ -48,7 +48,7 @@ var Style = require('src/editing/Style');
 				return;
 			delete def.id;
 			delete def.type;
-			var style = Style(context).create(type, id, def);
+			var style = new Style(type, id, def);
 //			self.addStyle(style);
 			styleAsString += style.linearize();
 		});
@@ -101,8 +101,9 @@ var Style = require('src/editing/Style');
 	
 var classConstructor = function(rawDef, stylesheet, appendElem) {
 	context = this.context;
-	logger = Logger(context).getInstance();
+//	logger = Logger(context).getInstance();
 	return new StylesheetWrapper(rawDef, stylesheet, appendElem);
 }
 
 module.exports = factory.Maker.getClassFactory(classConstructor);
+module.exports = StylesheetWrapper;

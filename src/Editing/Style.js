@@ -18,9 +18,10 @@ var StyleAttributes = require('src/editing/StyleAttributes');
 		this.id = attributes.id || id;
 		this.index = NaN; 	// index in the CSSStyleSheet.CSSRules Array (shall not be set for a style constructor, but kept here as a reminder, as the stylesheetWrapper on addStyle() shall linearize the style and reference the actual index)
 		this.type = type;
-		this.attributes = StyleAttributes(this.context).create(this.type, attributes);
+		this.attributes = new StyleAttributes(this.type, attributes);
 	}
-
+	
+	Style.prototype = {};
 	Style.prototype.linearize = function() {
 		return this.id + ' { ' + '\n' + this.attributes.linearize() + '\n' + '}\n';
 	}
@@ -37,4 +38,5 @@ var classConstructor = function(type, id, attributes) {
 	return new Style(type, id, attributes);
 }
 
-module.exports = factory.Maker.getClassFactory(classConstructor);
+//module.exports = factory.Maker.getClassFactory(classConstructor);
+module.exports = Style;

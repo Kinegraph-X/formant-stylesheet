@@ -59,27 +59,25 @@ var factory = require('src/core/Factory');
 			};
 		}
 	}
+	AttributeList.prototype = {};
 
 	Object.defineProperty(AttributeList.prototype, 'linearize', {
 																	value : function() {
-																				var str = '', current = '', attrCount = Object.keys(this).length, c = 0;
-																				for(var prop in this) {
-																					c++;
-																					if (typeof this[prop] === 'string' || this[prop] instanceof Point) {
-																						if (typeof this[prop].length !== 'undefined')	// string
-																							current = this[prop];
-																						else
-																							current = this[prop].linearize();			// "Point" obj
-																						str += '\t' + prop.dromedarToHyphens() + ' : ' + current + ';';
-																					}
-																					if (c !== attrCount)
-																						str += '\n';
-																				};
-																				return str;
-																			},
-																	enumerable : false,
-																	writable : false,
-																	configurable : false
+																		var str = '', current = '', attrCount = Object.keys(this).length, c = 0;
+																		for(var prop in this) {
+																			c++;
+																			if (typeof this[prop] === 'string' || this[prop] instanceof Point) {
+																				if (typeof this[prop].length !== 'undefined')	// string
+																					current = this[prop];
+																				else
+																					current = this[prop].linearize();			// "Point" obj
+																				str += '\t' + prop.dromedarToHyphens() + ' : ' + current + ';';
+																			}
+																			if (c !== attrCount)
+																				str += '\n';
+																		};
+																		return str;
+																	}
 																}
 	);
 	
@@ -88,4 +86,5 @@ var classConstructor = function(type, attributes) {
 	return new AttributeList(type, attributes);
 }
 
-module.exports = factory.Maker.getClassFactory(classConstructor);
+//module.exports = factory.Maker.getClassFactory(classConstructor);
+module.exports = AttributeList;
