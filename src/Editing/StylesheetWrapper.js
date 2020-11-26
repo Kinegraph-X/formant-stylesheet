@@ -6,10 +6,10 @@
  */
  
 //var Logger = require('src/Error&Log/Logger');
-var factory = require('src/core/Factory');
+//var factory = require('src/core/Factory');
 var Style = require('src/editing/Style');
 
-	var context;
+//	var context;
 	
 	StylesheetWrapper = function(rawDef, stylesheet, appendElem) {
 		this.objectType = 'StyleSheetWrapper';
@@ -49,7 +49,7 @@ var Style = require('src/editing/Style');
 			delete def.id;
 			delete def.type;
 			var style = new Style(type, id, def);
-//			self.addStyle(style);
+			self.addStyle(style);
 			styleAsString += style.linearize();
 		});
 		self.styleElem.innerHTML = styleAsString;
@@ -72,8 +72,9 @@ var Style = require('src/editing/Style');
 		// prevent erroneous injection (raw attributeList, null, undefined, etc.)
 		if (!style || typeof style.id === 'undefined')
 			return;
-		this.rules[style.id] = {index : this.stylesheet.cssRules.length, rule : style.linearize()};
-		this.stylesheet.insertRule(style.linearize(), this.stylesheet.cssRules.length);
+		this.rules[style.id] = {index : Object.keys(this.rules).length, rule : style, strRule : style.linearize()};
+		if (this.stylesheet)
+			this.stylesheet.insertRule(style.linearize(), this.stylesheet.cssRules.length);
 	}
 
 	StylesheetWrapper.prototype.removeStyles = function(styles) {
@@ -94,16 +95,24 @@ var Style = require('src/editing/Style');
 		delete this.rules[style.id];
 	}
 
-	StylesheetWrapper.prototype.getStyle = function(style) {
+	StylesheetWrapper.prototype.getStyleIdx = function(style) {
 		return this.rules[style.id].index;
 	}
 	
+	StylesheetWrapper.prototype.getRuleDefinition = function(id, prop) {
+		if (prop)
+			return this.rules[id] ? this.rules[id].rule.attributes[prop] : false;
+		else
+			return this.rules[id] ? this.rules[id].rule.attributes : false;
+	}
 	
-var classConstructor = function(rawDef, stylesheet, appendElem) {
-	context = this.context;
-//	logger = Logger(context).getInstance();
-	return new StylesheetWrapper(rawDef, stylesheet, appendElem);
-}
+	
+	
+//var classConstructor = function(rawDef, stylesheet, appendElem) {
+//	context = this.context;
+////	logger = Logger(context).getInstance();
+//	return new StylesheetWrapper(rawDef, stylesheet, appendElem);
+//}
 
-module.exports = factory.Maker.getClassFactory(classConstructor);
+//module.exports = factory.Maker.getClassFactory(classConstructor);
 module.exports = StylesheetWrapper;

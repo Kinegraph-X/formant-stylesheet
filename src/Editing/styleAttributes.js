@@ -4,7 +4,7 @@
  * @param type String : 
  */
  
-var factory = require('src/core/Factory');
+//var factory = require('src/core/Factory');
  
 	
 	var Point  = function(type, x, y) {

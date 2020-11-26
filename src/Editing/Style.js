@@ -11,7 +11,7 @@
  * @param attributes Object : passive partial AttributeList-Like (no methods, only significative keys defined)
  */
  
-var factory = require('src/core/Factory');
+//var factory = require('src/core/Factory');
 var StyleAttributes = require('src/editing/StyleAttributes');
 
 	var Style = function(type, id, attributes) {
