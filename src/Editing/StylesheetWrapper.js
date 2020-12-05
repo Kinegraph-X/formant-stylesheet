@@ -36,7 +36,7 @@ var Style = require('src/editing/Style');
 	}
 	
 	StylesheetWrapper.prototype.rawInitWithStyleDef = function(rawDef) {
-		var self = this, styleAsString = '';
+		var self = this;
 
 		rawDef.forEach(function(def, key) {
 			if (!self.styleElem.hasAttribute('name'))
@@ -50,9 +50,8 @@ var Style = require('src/editing/Style');
 			delete def.type;
 			var style = new Style(type, id, def);
 			self.addStyle(style);
-			styleAsString += style.linearize();
 		});
-		self.styleElem.innerHTML = styleAsString;
+		this.linearizeAndAppendCurrentRules();
 	}
 
 	StylesheetWrapper.prototype.addStyles = function(styles) {
@@ -63,9 +62,10 @@ var Style = require('src/editing/Style');
 				self.addStyle(style);
 			});
 		}
-		else if (typeof styles === 'string') {
-			self.addStyle(styles);
-		}
+		// inconsistent with the called method
+//		else if (typeof styles === 'string') {
+//			self.addStyle(styles);
+//		}
 	}
 
 	StylesheetWrapper.prototype.addStyle = function(style) {
@@ -76,6 +76,36 @@ var Style = require('src/editing/Style');
 		if (this.stylesheet)
 			this.stylesheet.insertRule(style.linearize(), this.stylesheet.cssRules.length);
 	}
+	
+	StylesheetWrapper.prototype.linearizeAndAppendLastRule = function() {
+		var rulesKeys = Object.keys(this.rules);
+		var lastRule = this.rules[rulesKeys.pop()];
+		this.styleElem.innerHTML += lastRule.strRule;
+//		console.log(this.styleElem.innerHTML);
+	}
+	
+	StylesheetWrapper.prototype.linearizeAndAppendCurrentRules = function() {
+		var styleAsString = '';
+		for (let rule in this.rules) {
+			styleAsString += this.rules[rule].rule.linearize();
+		}
+		this.styleElem.innerHTML = styleAsString;
+	}
+	
+	StylesheetWrapper.prototype.replaceStyle = function(styleRule, attributesList) {
+		var type = styleRule.type || '';
+		var id = styleRule.id;
+		this.removeStyle(styleRule);
+		
+		// still would need to implement the stylesheet case (but is of no use with the custom elem logic: working wih styleElems is sort of a requirement)
+		if (!this.stylesheet) {
+			if (typeof id === 'undefined' || !id.length)
+				return;
+			var style = new Style(type, id, attributesList);
+			this.addStyle(style);
+			this.linearizeAndAppendLastRule();
+		}
+	}
 
 	StylesheetWrapper.prototype.removeStyles = function(styles) {
 		var self = this;
@@ -84,14 +114,23 @@ var Style = require('src/editing/Style');
 				self.removeStyle(style);
 			});
 		}
-		else if (typeof styles === 'string') {
-			this.removeStyle(styles);
-		}
+		// inconsistent with the called method
+//		else if (typeof styles === 'string') {
+//			this.removeStyle(styles);
+//		}
 	}
 
 	StylesheetWrapper.prototype.removeStyle = function(style) {
-		var index = this.getStyle(style);
-		self.stylesheet.deleteRule(this.rules[style.id].index);
+		if (this.stylesheet) {
+			var index = this.getStyle(style);
+			this.stylesheet.deleteRule(this.rules[style.id].index);
+		}
+		else if (this.styleElem.innerHTML) {
+//			console.log(this.rules[style.id].strRule);
+//			console.log(this.styleElem.innerHTML);
+//			console.log(this.styleElem.innerHTML.replace(this.rules[style.id].strRule, ''));
+			this.styleElem.innerHTML = this.styleElem.innerHTML.replace(this.rules[style.id].strRule, '');
+		}
 		delete this.rules[style.id];
 	}
 
@@ -104,6 +143,11 @@ var Style = require('src/editing/Style');
 			return this.rules[id] ? this.rules[id].rule.attributes[prop] : false;
 		else
 			return this.rules[id] ? this.rules[id].rule.attributes : false;
+	}
+	
+	StylesheetWrapper.prototype.getRuleAsObject = function(id) {
+//		console.log(this.rules);
+		return this.rules[id] ? this.rules[id] : false;
 	}
 	
 	
