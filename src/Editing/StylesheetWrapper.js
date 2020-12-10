@@ -70,6 +70,7 @@ var Style = require('src/editing/Style');
 
 	StylesheetWrapper.prototype.addStyle = function(style) {
 		// prevent erroneous injection (raw attributeList, null, undefined, etc.)
+//		console.log(style.id, style.linearize());
 		if (!style || typeof style.id === 'undefined')
 			return;
 		this.rules[style.id] = {index : Object.keys(this.rules).length, rule : style, strRule : style.linearize()};
