@@ -11,10 +11,10 @@ var Style = require('src/editing/Style');
 
 //	var context;
 	
-	StylesheetWrapper = function(rawDef, stylesheet, appendElem) {
+	StylesheetWrapper = function(rawDef, stylesheet, appendElem, name) {
 		this.objectType = 'StyleSheetWrapper';
 		this.rules = {};
-		
+//		console.log(rawDef, stylesheet, appendElem, name);
 		if (typeof stylesheet !== 'undefined' && stylesheet !== null)
 			this.stylesheet = stylesheet;
 		else {
@@ -25,7 +25,7 @@ var Style = require('src/editing/Style');
 				if (appendElem === true)
 					document.head.appendChild(this.styleElem);
 				this.stylesheet = this.styleElem.sheet;
-				this.rawInitWithStyleDef(rawDef);
+				this.rawInitWithStyleDef(rawDef, name);
 //				if (appendElem !== true)
 //					this.styleElem.remove();
 			}
@@ -35,20 +35,20 @@ var Style = require('src/editing/Style');
 		}
 	}
 	
-	StylesheetWrapper.prototype.rawInitWithStyleDef = function(rawDef) {
+	StylesheetWrapper.prototype.rawInitWithStyleDef = function(rawDef, name) {
 		var self = this;
 
 		rawDef.forEach(function(def, key) {
 			if (!self.styleElem.hasAttribute('name'))
-				self.styleElem.setAttribute('name', def.id);
-			
+				self.styleElem.setAttribute('name', name);
+//			console.log(def);
 			var type = def.type || '';
-			var id = def.id;
-			if (typeof def.id === 'undefined' || !def.id.length)
+			var selector = def.selector;
+			if (typeof def.selector === 'undefined' || !def.selector.length)
 				return;
-			delete def.id;
+			delete def.selector;
 			delete def.type;
-			var style = new Style(type, id, def);
+			var style = new Style(type, selector, def);
 			self.addStyle(style);
 		});
 		this.linearizeAndAppendCurrentRules();
@@ -70,10 +70,10 @@ var Style = require('src/editing/Style');
 
 	StylesheetWrapper.prototype.addStyle = function(style) {
 		// prevent erroneous injection (raw attributeList, null, undefined, etc.)
-//		console.log(style.id, style.linearize());
-		if (!style || typeof style.id === 'undefined')
+//		console.log(style, style.linearize());
+		if (!style || typeof style.selector === 'undefined')
 			return;
-		this.rules[style.id] = {index : Object.keys(this.rules).length, rule : style, strRule : style.linearize()};
+		this.rules[style.selector] = {index : Object.keys(this.rules).length, rule : style, strRule : style.linearize()};
 		if (this.stylesheet)
 			this.stylesheet.insertRule(style.linearize(), this.stylesheet.cssRules.length);
 	}
@@ -90,19 +90,20 @@ var Style = require('src/editing/Style');
 		for (let rule in this.rules) {
 			styleAsString += this.rules[rule].rule.linearize();
 		}
+//		console.log(this.styleElem);
 		this.styleElem.innerHTML = styleAsString;
 	}
 	
 	StylesheetWrapper.prototype.replaceStyle = function(styleRule, attributesList) {
 		var type = styleRule.type || '';
-		var id = styleRule.id;
+		var selector = styleRule.selector;
 		this.removeStyle(styleRule);
 		
 		// still would need to implement the stylesheet case (but is of no use with the custom elem logic: working wih styleElems is sort of a requirement)
 		if (!this.stylesheet) {
-			if (typeof id === 'undefined' || !id.length)
+			if (typeof selector === 'undefined' || !selector.length)
 				return;
-			var style = new Style(type, id, attributesList);
+			var style = new Style(type, selector, attributesList);
 			this.addStyle(style);
 			this.linearizeAndAppendLastRule();
 		}
@@ -124,31 +125,31 @@ var Style = require('src/editing/Style');
 	StylesheetWrapper.prototype.removeStyle = function(style) {
 		if (this.stylesheet) {
 			var index = this.getStyle(style);
-			this.stylesheet.deleteRule(this.rules[style.id].index);
+			this.stylesheet.deleteRule(this.rules[style.selector].index);
 		}
 		else if (this.styleElem.innerHTML) {
-//			console.log(this.rules[style.id].strRule);
+//			console.log(this.rules[style.selector].strRule);
 //			console.log(this.styleElem.innerHTML);
-//			console.log(this.styleElem.innerHTML.replace(this.rules[style.id].strRule, ''));
-			this.styleElem.innerHTML = this.styleElem.innerHTML.replace(this.rules[style.id].strRule, '');
+//			console.log(this.styleElem.innerHTML.replace(this.rules[style.selector].strRule, ''));
+			this.styleElem.innerHTML = this.styleElem.innerHTML.replace(this.rules[style.selector].strRule, '');
 		}
-		delete this.rules[style.id];
+		delete this.rules[style.selector];
 	}
 
 	StylesheetWrapper.prototype.getStyleIdx = function(style) {
-		return this.rules[style.id].index;
+		return this.rules[style.selector].index;
 	}
 	
-	StylesheetWrapper.prototype.getRuleDefinition = function(id, prop) {
+	StylesheetWrapper.prototype.getRuleDefinition = function(selector, prop) {
 		if (prop)
-			return this.rules[id] ? this.rules[id].rule.attributes[prop] : false;
+			return this.rules[selector] ? this.rules[selector].rule.attributes[prop] : false;
 		else
-			return this.rules[id] ? this.rules[id].rule.attributes : false;
+			return this.rules[selector] ? this.rules[selector].rule.attributes : false;
 	}
 	
-	StylesheetWrapper.prototype.getRuleAsObject = function(id) {
+	StylesheetWrapper.prototype.getRuleAsObject = function(selector) {
 //		console.log(this.rules);
-		return this.rules[id] ? this.rules[id] : false;
+		return this.rules[selector] ? this.rules[selector] : false;
 	}
 	
 	
