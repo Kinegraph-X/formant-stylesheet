@@ -53,6 +53,26 @@ var Style = require('src/editing/Style');
 		});
 		this.linearizeAndAppendCurrentRules();
 	}
+	
+	// sOverrideWrapper is in fact the component's sWrapper: let's override the override to keep the cache clean
+	StylesheetWrapper.prototype.handleStylesheetOverride = function(sOverrideWrapper) {
+		var selector, def, selfDef, type, style;
+		for (let ruleSelector in sOverrideWrapper.rules) {
+			selector = sOverrideWrapper.rules[ruleSelector].rule.selector;
+//			console.log(selector, this.rules[selector]);
+			if (!selector)
+				continue;
+				
+			def = sOverrideWrapper.rules[ruleSelector].rule.attributes;
+			type = '';
+			if (this.rules[selector]) 
+				this.mergeSelfStyleUponReceived(this.rules[selector].rule, def);
+			else {
+				this.addStyle(new Style(type, selector, def));
+			}
+		}
+		return this;
+	}
 
 	StylesheetWrapper.prototype.addStyles = function(styles) {
 		var self = this;
@@ -134,6 +154,26 @@ var Style = require('src/editing/Style');
 			this.styleElem.innerHTML = this.styleElem.innerHTML.replace(this.rules[style.selector].strRule, '');
 		}
 		delete this.rules[style.selector];
+	}
+	
+	StylesheetWrapper.prototype.mergeSelfStyleUponReceived = function(selfStyleRule, attributesList) {
+		var type = selfStyleRule.type || '';
+		var selector = selfStyleRule.selector;
+//		var mergedAttributes = {};//Object.assign(selfStyleRule.attributes, attributesList);
+		for (let prop in attributesList) {
+			if (attributesList.hasOwnProperty(prop) && !selfStyleRule.attributes[prop])
+				selfStyleRule.attributes[prop] = attributesList[prop];
+		}
+		this.removeStyle(selfStyleRule);
+		
+		// still would need to implement the stylesheet case (but is of no use with the custom elem logic: working wih styleElems is sort of a requirement)
+		if (!this.stylesheet) {
+			if (typeof selector === 'undefined' || !selector.length)
+				return;
+			var style = new Style(type, selector, selfStyleRule.attributes);
+			this.addStyle(style);
+			this.linearizeAndAppendLastRule();
+		}
 	}
 
 	StylesheetWrapper.prototype.getStyleIdx = function(style) {
