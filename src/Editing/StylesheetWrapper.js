@@ -46,8 +46,8 @@ var Style = require('src/editing/Style');
 			var selector = def.selector;
 			if (typeof def.selector === 'undefined' || !def.selector.length)
 				return;
-			delete def.selector;
-			delete def.type;
+//			delete def.selector;
+//			delete def.type;
 			var style = new Style(type, selector, def);
 			self.addStyle(style);
 		});

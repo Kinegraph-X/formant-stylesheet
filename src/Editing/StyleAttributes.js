@@ -54,7 +54,7 @@
 		
 		if (typeof attributes === 'object' && Object.keys(attributes).length) {
 			for(var prop in attributes) {
-				if (attributes.hasOwnProperty(prop))
+				if (attributes.hasOwnProperty(prop) && prop !== 'selector' && prop !== 'type')
 					this[prop] = attributes[prop];
 			};
 		}
