@@ -14,6 +14,7 @@ var Style = require('src/editing/Style');
 	StylesheetWrapper = function(rawDef, stylesheet, appendElem, name) {
 		this.objectType = 'StyleSheetWrapper';
 		this.rules = {};
+		this.isInDOM = false;
 //		console.log(rawDef, stylesheet, appendElem, name);
 		if (typeof stylesheet !== 'undefined' && stylesheet !== null)
 			this.stylesheet = stylesheet;
