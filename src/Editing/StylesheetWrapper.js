@@ -118,7 +118,14 @@ var Style = require('src/editing/Style');
 	StylesheetWrapper.prototype.replaceStyle = function(styleRule, attributesList) {
 		var type = styleRule.type || '';
 		var selector = styleRule.selector;
-		this.removeStyle(styleRule);
+		
+		// Replace a rule with itself after having mutated it (NOT USED)
+		if (!attributesList) {
+			this.styleElem.innerHTML = this.styleElem.innerHTML.replace(this.rules[styleRule.selector].strRule, '');
+			attributesList = styleRule.rule.attributes
+		}
+		else
+			this.removeStyle(styleRule);
 		
 		// still would need to implement the stylesheet case (but is of no use with the custom elem logic: working wih styleElems is sort of a requirement)
 		if (!this.stylesheet) {
@@ -189,8 +196,19 @@ var Style = require('src/editing/Style');
 	}
 	
 	StylesheetWrapper.prototype.getRuleAsObject = function(selector) {
-//		console.log(this.rules);
-		return this.rules[selector] ? this.rules[selector] : false;
+		var rule;
+		for (let rule in this.rules) {
+			if (rule.toLowerCase() === selector.toLowerCase())
+				return this.rules[selector];
+		}
+	}
+	
+	StylesheetWrapper.prototype.getRulesAsDef = function() {
+		var styleAsArray = [];
+		for (let rule in this.rules) {
+			styleAsArray.push(Object.assign({selector : rule}, this.rules[rule].rule.attributes));
+		}
+		return styleAsArray;
 	}
 	
 	
