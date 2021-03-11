@@ -111,8 +111,8 @@ AbstractStylesheet.prototype.removeRule = function(selector) {
 }
 
 AbstractStylesheet.prototype.overrideStyles = function(styleRules) {
-	if (!Array.isArray(styleRules)) {
-		console.warn(this.objectType, 'overrideStyles only accepts arrays. Returning...');
+	if (!styleRules || !Array.isArray(styleRules)) {
+		console.warn(this.objectType, 'overrideStyles only accepts arrays.', styleRules === null ? 'null' : typeof styleRules, 'given. Returning...');
 		return;
 	}
 	styleRules.forEach(function(rawRule) {

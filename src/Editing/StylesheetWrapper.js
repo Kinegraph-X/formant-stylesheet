@@ -11,7 +11,7 @@ var Style = require('src/editing/Style');
 
 //	var context;
 	
-	StylesheetWrapper = function(rawDef, stylesheet, appendElem, name) {
+	var StylesheetWrapper = function(rawDef, stylesheet, appendElem, name) {
 		this.objectType = 'StyleSheetWrapper';
 		this.rules = {};
 		this.isInDOM = false;
