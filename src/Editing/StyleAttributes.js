@@ -4,8 +4,8 @@
  * @param type String : 
  */
  
-//var factory = require('src/core/Factory');
- 
+var StylePropertyEnhancer = require('src/Editing/StylePropertyEnhancer');
+var enhancer = new StylePropertyEnhancer();
 	
 	var Point  = function(type, x, y) {
 
@@ -81,10 +81,48 @@
 																}
 	);
 	
+	Object.defineProperty(AttributeList.prototype, 'getAttribute', {
+																	value : function(attributeName) {
+																		
+																	}
+																}
+	);
+	
+	Object.defineProperty(AttributeList.prototype, 'getAttributeAsCSSOM', {
+																	value : function(attributeName) {
+																		
+																	}
+																}
+	);
+	
+	Object.defineProperty(AttributeList.prototype, 'getAttributeAsKeyValue', {
+																	value : function(attributeName) {
+																		
+																	}
+																}
+	);
+	
+	Object.defineProperty(AttributeList.prototype, 'setAttribute', {
+																	value : function(attributeName, attributeValue) {
+																		
+																	}
+																}
+	);
+	
+	Object.defineProperty(AttributeList.prototype, 'setAttributeFromCSSOM', {
+																	value : function(attributeName, attributeValue) {
+																		
+																	}
+																}
+	);
+	
+	Object.defineProperty(AttributeList.prototype, 'setAttributeFromKeyValue', {
+																	value : function(attributeName, attributeValue) {
+																		
+																	}
+																}
+	);
 
-var classConstructor = function(type, attributes) {
-	return new AttributeList(type, attributes);
-}
 
 //module.exports = factory.Maker.getClassFactory(classConstructor);
 module.exports = AttributeList;

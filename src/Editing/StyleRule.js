@@ -7,6 +7,7 @@
  */
 
 var Style = require('src/editing/Style');
+var AdvancedAttributesList = require('src/editing/SplittedAttributes');
 
 	
 var StyleRule = function(ruleIdx, rawRule) {
@@ -20,8 +21,8 @@ var StyleRule = function(ruleIdx, rawRule) {
 	this.ruleIdx = ruleIdx || 0;
 	this.selector = rawRule.selector;
 	this.hasOverride = false;
-	this.Iface = new Style(null, this.selector, this.getAttributes(rawRule));
-	this.attributes  = this.Iface.attributes;
+	this.styleIFace = new Style(null, this.selector, this.getAttributes(rawRule));
+	this.attrIFace  = this.styleIFace.attrIFace;
 	this.additionalAttributes = {};
 	this.strRule = '';
 }
@@ -38,24 +39,24 @@ StyleRule.prototype.getAttributes = function(rawRule) {
 StyleRule.prototype.setAttributes = function(rawRule) {
 	for (let prop in rawRule) {
 		if (prop !== 'selector')
-			this.attributes[prop] = rawRule[prop];
+			this.attrIFace.set(prop, rawRule[prop]);
 	}
 }
 
 StyleRule.prototype.cloneAttributes = function() {
-	return Object.assign({}, this.attributes);
+	return (new AdvancedAttributesList(this.attrIFace.getAllAttributes())).getAllAttributes();
 }
 
 StyleRule.prototype.populateStrRule = function() {
-	this.strRule = this.Iface.linearize();
+	this.strRule = this.styleIFace.linearize();
 }
 
 StyleRule.prototype.getAttr = function(attr) {
-	return this.attributes[attr];
+	return this.attrIFace.get(attr);
 }
 
 StyleRule.prototype.setAttr = function(attr, value) {
-	this.attributes[attr] = value;
+	this.attrIFace.set(attr, value);
 }
 
 StyleRule.prototype.safeMergeAttributes = function(rawRule) {
@@ -66,8 +67,11 @@ StyleRule.prototype.safeMergeAttributes = function(rawRule) {
 }
 
 StyleRule.prototype.applyAdditionnalStyleAsOverride = function() {
-	if (this.hasOverride)
-		Object.assign(this.attributes, this.additionalAttributes);
+	if (this.hasOverride) {
+		for (let attr in this.additionalAttributes) {
+			this.attrIFace.set(attr, this.additionalAttributes[attr]);
+		}
+	}
 }
 
 

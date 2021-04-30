@@ -13,6 +13,8 @@ var Style = require('src/editing/Style');
 	
 var AbstractStylesheet = function(styleRules, name) {
 	this.objectType = 'AbstractStylesheet';
+	if (name)
+		this.name = name;
 	
 	if (!Array.isArray(styleRules)) {
 		console.warn(this.objectType, 'styleRules isn\'t an Array. Returning..., "', styleRules, '" has been received');
@@ -45,7 +47,7 @@ AbstractStylesheet.prototype.getStyleNode = function() {
 //}
 
 AbstractStylesheet.prototype.getProp = function(selector, prop) {
-	return this.rules[selector].attributes[prop];
+	return this.rules[selector].getAttr(prop);
 }
 
 AbstractStylesheet.prototype.setProp = function(selector, prop, value) {
@@ -75,7 +77,13 @@ AbstractStylesheet.prototype.addRule = function(rule, selector) {
 	else
 	
 		sRule = rule;
-	selector = rule.selector || rule.attributes.selector || selector;
+	selector = rule.selector || (rule.attrIFace && rule.attrIFace.selector) || selector;
+	
+	if (!selector) {
+		console.warn('AbstractStylesheet: constructing a styleRule based on an empty selector', rule, 'Returning...');
+		return;
+	}
+	
 	this.rules[selector] = sRule;
 }
 
@@ -100,7 +108,7 @@ AbstractStylesheet.prototype.updateRule = function(rawRule, selector) {
 AbstractStylesheet.prototype.replaceRule = function(selector) {
 	if (!this.rules[selector].strRule.length)
 		return;
-	var newStrRule = this.rules[selector].Iface.linearize();
+	var newStrRule = this.rules[selector].styleIFace.linearize();
 	this.currentAPI.replaceRule(this.rules[selector].strRule, newStrRule);
 	this.rules[selector].strRule = newStrRule;
 }
@@ -150,7 +158,7 @@ AbstractStylesheet.prototype.shouldSerializeOne = function(selector) {
 		this.replaceRule(selector);
 		return;
 	}
-	this.rules[selector].strRule = this.rules[selector].Iface.linearize();
+	this.rules[selector].strRule = this.rules[selector].styleIFace.linearize();
 	this.currentAPI.appendRule(this.rules[selector].strRule);
 }
 
@@ -158,7 +166,7 @@ AbstractStylesheet.prototype.shouldSerializeAll = function() {
 	var styleAsString = '';
 	for (let selector in this.rules) {
 		this.rules[selector].applyAdditionnalStyleAsOverride();
-		styleAsString += this.rules[selector].strRule = this.rules[selector].Iface.linearize();
+		styleAsString += this.rules[selector].strRule = this.rules[selector].styleIFace.linearize();
 	}
 	this.currentAPI.setContent(styleAsString);
 }
@@ -177,7 +185,7 @@ AbstractStylesheet.prototype.shouldSerializeAll = function() {
 
 var DOMStyleAPI = function(name) {
 	this.styleElem;
-	name = this.getStyleElem(name);
+	name = this.getStyleElem(name);		// cache temporary registration magic...
 	this.styleElem.name = name;
 	this.stylesheet = this.styleElem.sheet;
 }
