@@ -1,7 +1,14 @@
 /**
 * Stylesheets
 */
+ 
+var GeneratorFor16bitsInt = require('src/core/UIDGenerator').GeneratorFor16bitsInt;
+var StyleAttributes = require('src/editing/StyleAttributes');
+var AdvancedStyleAttributes = require('src/editing/SplittedAttributes');
 
+var BinarySchema = require('src/core/BinarySchema');
+var MemoryPartialBuffer = require('src/core/MemoryPartialBuffer');
+var MemoryBufferStack = require('src/core/MemoryBufferStack');
 
 /**
  * Construct. Style
@@ -11,25 +18,43 @@
  * @param optimizedSelector {string} : optimized CSS selector (represented as a 4 bytes sequence and a UID)
  * @param attrIface {object} : passive partial PropertiesList-Like (no methods, only significative keys defined)
  */
- 
-var GeneratorFor16bitsInt = require('src/core/UIDGenerator').GeneratorFor16bitsInt;
-var StyleAttributes = require('src/editing/StyleAttributes');
-var AdvancedStyleAttributes = require('src/editing/SplittedAttributes');
+
 
 var Style = function(type, selector, attributes) {
 	this.selector = attributes.selector || selector;
 	
-	this.optimizedSelector = new Uint8Array(8);
-	var substr = this.extractMostSpecificPartFromSelector(this.selector);
-	// 16 bits values have to be declared as byte-tuples ([1, 0] would then represent 1, as all CPU's are now little-endian') ²
+	this.selectorProofingPartType = 0;
+	
+	this.compactedViewOnSelector = new MemoryPartialBuffer(
+		new BinarySchema(
+			'compactedViewOnSelector',
+			[
+				'stringLength',
+				'stringBinaryEncoding',
+				'selectorProofingPartType',
+				'bufferUID'
+			],
+			[
+				1,
+				4,
+				1,
+				2
+			]
+		)
+	)
+	
+	this.compactedViewOnSelector = new Uint8Array(8);
+	var substr = this.extractMostSpecificPartFromSelector(this.selector).getNcharsAsCharCodesArray(4, 4);
+	// 16 bits values have to be declared as byte-tuples ([1, 0] would then represent 1, as all CPU's are now little-endian) 
 	// let's stick to Big Endian, but it has no importance at all (uniqueness is the only criteria for UID)
-	this.optimizedSelector.set([0, Math.max(Math.min(substr.length - 4, 4), 0)], 0);
-	// TODO: extract the most specific selector (!important -> "style" DOM attr as a rule -> ID -> class/attribute/prop/pseudo-class -> nodeType/pseudo-elem)
-	this.optimizedSelector.set(substr.getNcharsAsByteArray(4, 4), 2);
-	this.optimizedSelector.set(GeneratorFor16bitsInt.newUID(), 6);
+	this.compactedViewOnSelector.set(substr.length, 0);
+	// Extract the most specific selector (specificity priority is: !important -> "style" DOM attr as a rule -> ID -> class/attribute/prop/pseudo-class -> nodeType/pseudo-elem)
+	this.compactedViewOnSelector.set(substr, 1);
+	this.compactedViewOnSelector.set(this.selectorProofingPartType, 5);
+	this.compactedViewOnSelector.set(GeneratorFor16bitsInt.newUID(), 6);
 	
 //	console.log(substr.length ? substr : this.selector);
-	console.log(substr.getNcharsAsByteArray(4, 4).join(','));
+	console.log(substr.join(','));
 	
 //	throw new Error();
 	// TODO: get rid of this horrible "NaN"
@@ -37,6 +62,13 @@ var Style = function(type, selector, attributes) {
 	this.index = NaN; 	// index in the CSSStyleSheet.CSSRules Array (shall not be set for a style constructor, but kept here as a reminder, as the stylesheetWrapper on addStyle() shall linearize the style and reference the actual index)
 	this.type = type;
 	this.attrIFace = new AdvancedStyleAttributes(this.type, attributes);
+}
+
+Style.constants = {
+	rawSelectorIsProof : 0,
+	idIsProof : 1,
+	classIsProof : 2,
+	tagIsProof : 3
 }
 
 Style.prototype = {};
@@ -66,17 +98,22 @@ Style.prototype.cascadeOnSpecificity = function(rightMost) {
 	var match;
 	
 	match = rightMost.match(/#\w+/);
-	if (match)
+	if (match) {
+		this.selectorProofingPartType = Style.constants.idIsProof;
 		return match[0];
+	}
 	else {
-		match = rightMost.match(/\.\w+|:\w+/);
-		if (match)
+		match = rightMost.match(/\.\w+/);
+		if (match) {
+			this.selectorProofingPartType = Style.constants.classIsProof;
 			return match[0];
-		
+		}
 		else {
 			match = rightMost.match(/[^\.#:]\w+/);
-			if (match)
+			if (match) {
+				this.selectorProofingPartType = Style.constants.tagIsProof;
 				return match[0];
+			}
 		}
 	}
 	
