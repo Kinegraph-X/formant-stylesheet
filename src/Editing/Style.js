@@ -42,8 +42,8 @@ var Style = function(type, selector, attributes) {
 			]
 		)
 	)
-	
-	this.compactedViewOnSelector = new Uint8Array(8);
+	 
+//	this.compactedViewOnSelector = new Uint8Array(8);
 	var substr = this.extractMostSpecificPartFromSelector(this.selector).getNcharsAsCharCodesArray(4, 4);
 	// 16 bits values have to be declared as byte-tuples ([1, 0] would then represent 1, as all CPU's are now little-endian) 
 	// let's stick to Big Endian, but it has no importance at all (uniqueness is the only criteria for UID)
@@ -54,7 +54,7 @@ var Style = function(type, selector, attributes) {
 	this.compactedViewOnSelector.set(GeneratorFor16bitsInt.newUID(), 6);
 	
 //	console.log(substr.length ? substr : this.selector);
-	console.log(substr.join(','));
+//	console.log(substr.join(',')); 
 	
 //	throw new Error();
 	// TODO: get rid of this horrible "NaN"
