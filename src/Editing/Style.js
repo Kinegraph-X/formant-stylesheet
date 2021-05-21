@@ -44,17 +44,26 @@ var Style = function(type, selector, attributes) {
 	)
 	 
 //	this.compactedViewOnSelector = new Uint8Array(8);
-	var substr = this.extractMostSpecificPartFromSelector(this.selector).getNcharsAsCharCodesArray(4, 4);
+
+	//     /!\     WARNING: are we allowed to match insensitive to case?     /!\
+	
+	// TAKE CARE OF PERF: we optimized the String.prototype.getNCharAsCharCodess method to get 4  chars most of the time. But that's  pretty useless...
+	
+	var substrDef = this.extractMostSpecificPartFromSelector(this.selector).toLowerCase().getNcharsAsCharCodesArray(4, 3);
 	// 16 bits values have to be declared as byte-tuples ([1, 0] would then represent 1, as all CPU's are now little-endian) 
 	// let's stick to Big Endian, but it has no importance at all (uniqueness is the only criteria for UID)
-	this.compactedViewOnSelector.set(substr.length, 0);
+	// Offset of the extracted string from the original string
+//	console.log(!substrDef[1].length ? typeof substrDef[0] + ' ' + this.selector + ' : ' + substrDef : 'alright');
+	this.compactedViewOnSelector.set([substrDef[0]], 0);
+	// Length of the extracted string from the original string
+	this.compactedViewOnSelector.set([substrDef[1].length], 1);
 	// Extract the most specific selector (specificity priority is: !important -> "style" DOM attr as a rule -> ID -> class/attribute/prop/pseudo-class -> nodeType/pseudo-elem)
-	this.compactedViewOnSelector.set(substr, 1);
+	this.compactedViewOnSelector.set(substrDef[1], 2);
 	this.compactedViewOnSelector.set(this.selectorProofingPartType, 5);
 	this.compactedViewOnSelector.set(GeneratorFor16bitsInt.newUID(), 6);
-	
-//	console.log(substr.length ? substr : this.selector);
-//	console.log(substr.join(',')); 
+		
+//	console.log(substrDef.length ? substrDef[1].length.toString() + ' : ' + this.extractMostSpecificPartFromSelector(this.selector) : this.selector);
+//	console.log(this.selector, substrDef[1].join(','), this.compactedViewOnSelector._buffer[0], this.compactedViewOnSelector._buffer[1]);
 	
 //	throw new Error();
 	// TODO: get rid of this horrible "NaN"
@@ -88,6 +97,8 @@ Style.prototype.extractMostSpecificPartFromSelector = function() {
 	var splitted = this.selector.split(/\,|\s/g);
 	if (!splitted)
 		splitted = this.selector;
+//	else if (!Array.isArray(splitted))
+//		splitted = new Array(splitted);
 	
 //	console.log(this.selector.match(/\,|\s/g), splitted);
 		
@@ -97,19 +108,20 @@ Style.prototype.extractMostSpecificPartFromSelector = function() {
 Style.prototype.cascadeOnSpecificity = function(rightMost) {
 	var match;
 	
-	match = rightMost.match(/#\w+/);
+	match = rightMost.match(/#(\w+)/);
 	if (match) {
 		this.selectorProofingPartType = Style.constants.idIsProof;
-		return match[0];
+		return match[1];
 	}
 	else {
-		match = rightMost.match(/\.\w+/);
+		match = rightMost.match(/\.([\w_-]+)|\[class.?="([\w_-]+)"\]/);
 		if (match) {
 			this.selectorProofingPartType = Style.constants.classIsProof;
-			return match[0];
+			return match[1] || match[2];
 		}
 		else {
-			match = rightMost.match(/[^\.#:]\w+/);
+			//   ':host'.match(/[^\.#:](\w+)/) 	=> 		Array [ "host", "ost"]
+			match = rightMost.match(/[^\.#:][\w_-]+/);
 			if (match) {
 				this.selectorProofingPartType = Style.constants.tagIsProof;
 				return match[0];
