@@ -184,7 +184,7 @@ AbstractStylesheet.prototype.shouldSerializeAll = function() {
 
 
 var DOMStyleAPI = function(name) {
-	this.styleElem;
+	this.styleElem = {};				// should be null
 	name = this.getStyleElem(name);		// cache temporary registration magic...
 	this.styleElem.name = name;
 	this.stylesheet = this.styleElem.sheet;
@@ -197,6 +197,10 @@ DOMStyleAPI.prototype.getStyleElem = function(name) {
 		return name;
 	}
 	else {
+		// HACK: before we generalize the API for style objects, there's only this one...
+		//		=> don't try to get a stylElement if we're outside the browser
+		if (typeof document === 'undefined' || typeof document.ownerDocument === 'undefined')
+			return cachedUnderUID;
 		this.styleElem = document.createElement('style');
 		return cachedUnderUID;
 	}
