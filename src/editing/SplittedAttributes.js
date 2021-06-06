@@ -4,7 +4,7 @@
  * @param type String : 
  */
  
-var StylePropertyEnhancer = require('src/Editing/StylePropertyEnhancer');
+var StylePropertyEnhancer = require('src/editing/StylePropertyEnhancer');
 var enhancer = new StylePropertyEnhancer();
 
 	/**
@@ -113,26 +113,26 @@ var enhancer = new StylePropertyEnhancer();
 	
 	
 	
-	/**
-	 * Construct. InheritedAttributesList
-	 * 
-	 * @param attributes Object : passive partial AttributesList-Like (no methods, only significative keys defined)
-	 */
-	var InheritedAttributesList = function(attributes) {
-		
-	}
-	InheritedAttributesList.prototype = Object.create(AttributesList.prototype);
-	
-	
-	/**
-	 * Construct. LocallyEffectiveAttributesList
-	 * 
-	 * @param attributes Object : passive partial AttributesList-Like (no methods, only significative keys defined)
-	 */
-	var LocallyEffectiveAttributesList = function(attributes) {
-		
-	}
-	LocallyEffectiveAttributesList.prototype = Object.create(AttributesList.prototype);
+//	/**
+//	 * Construct. InheritedAttributesList
+//	 * 
+//	 * @param attributes Object : passive partial AttributesList-Like (no methods, only significative keys defined)
+//	 */
+//	var InheritedAttributesList = function(attributes) {
+//		
+//	}
+//	InheritedAttributesList.prototype = Object.create(AttributesList.prototype);
+//	
+//	
+//	/**
+//	 * Construct. LocallyEffectiveAttributesList
+//	 * 
+//	 * @param attributes Object : passive partial AttributesList-Like (no methods, only significative keys defined)
+//	 */
+//	var LocallyEffectiveAttributesList = function(attributes) {
+//		
+//	}
+//	LocallyEffectiveAttributesList.prototype = Object.create(AttributesList.prototype);
 	
 	
 	
@@ -184,6 +184,13 @@ var enhancer = new StylePropertyEnhancer();
 	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'set', {
 		value : function(attr, value) {
 			this.stdAttributesList.set(attr, value);
+		}
+	});
+	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'setApply', {
+		value : function(attrList) {
+			Object.entries(attrList).forEach(function(pair) {
+				this.stdAttributesList.set(pair[0], pair[1]);
+			}, this);
 		}
 	});
 	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'getAllAttributes', {

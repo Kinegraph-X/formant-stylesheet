@@ -4,7 +4,7 @@
  * @param type String : 
  */
  
-var StylePropertyEnhancer = require('src/Editing/StylePropertyEnhancer');
+var StylePropertyEnhancer = require('src/editing/StylePropertyEnhancer');
 var enhancer = new StylePropertyEnhancer();
 	
 	var Point  = function(type, x, y) {
