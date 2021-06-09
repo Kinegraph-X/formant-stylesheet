@@ -363,7 +363,7 @@ var BinarySlice = require('src/core/BinarySlice');
 
 	
 	
-	Object.defineProperty(AdvancedAttributesListFactory, 'dictInheritedAttributes', {
+	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'dictInheritedAttributes', {
 		value : [
 			'writingMode',					// horizontal-tb / vertical-lr / vertical-rl / sideways-rl / sideways-lr
 			'captionSide',					// top / bottom (title or legend of a table)
@@ -382,7 +382,7 @@ var BinarySlice = require('src/core/BinarySlice');
 		]
 	});
 	
-	Object.defineProperty(AdvancedAttributesListFactory, 'dictLocallyEffectiveAttributes', {
+	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'dictLocallyEffectiveAttributes', {
 		value : [
 			'display',						// grid / flex / inline / inline-block / block / table / table-cell
 			'overflowX',					// hidden / visible / scroll
@@ -394,7 +394,7 @@ var BinarySlice = require('src/core/BinarySlice');
 		]
 	});
 	
-	Object.defineProperty(AdvancedAttributesListFactory, 'dictBoxModelAttributes', {
+	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'dictBoxModelAttributes', {
 		value : [
 			'boxSizing',					// border-box / content-box
 			'width',						// DIMENSION
@@ -452,7 +452,7 @@ var BinarySlice = require('src/core/BinarySlice');
 	]
 	});
 	
-	Object.defineProperty(AdvancedAttributesListFactory, 'dictStrictlyLocalAttributes', {
+	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'dictStrictlyLocalAttributes', {
 		value : [
 			'borderRadius',					// DIMENSION[1-4] / DIMENSION[1-4]
 	
