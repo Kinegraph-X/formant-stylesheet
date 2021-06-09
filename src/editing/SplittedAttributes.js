@@ -7,6 +7,9 @@
 var StylePropertyEnhancer = require('src/editing/StylePropertyEnhancer');
 var enhancer = new StylePropertyEnhancer();
 
+var BinarySlice = require('src/core/BinarySlice');
+
+
 	/**
 	 * Construct. AttributesList
 	 * This abstract type shall be used as a base for the "splitted" styles:
@@ -18,6 +21,8 @@ var enhancer = new StylePropertyEnhancer();
 	 * @param attributes Object : passive partial AttributesList-Like (no methods, only significative keys defined)
 	 */
 	var AttributesList = function(attributes) {
+		if (typeof attributes === 'undefined')
+			return;
 		// backward compatibility with the attributes list we defined in PHP,
 		// and ported as the basic implementation of AttributesList (StyleAttributes.js)
 		
@@ -186,6 +191,7 @@ var enhancer = new StylePropertyEnhancer();
 			this.stdAttributesList.set(attr, value);
 		}
 	});
+	// FIXME: should update all partial lists down the object
 	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'setApply', {
 		value : function(attrList) {
 			Object.entries(attrList).forEach(function(pair) {
@@ -206,25 +212,25 @@ var enhancer = new StylePropertyEnhancer();
 				return attributes;
 			else if (purpose === 'inherited') {
 				for (var attr in attributes) {
-					if (dictInheritedAttributes.indexOf(attr) !== -1)
+					if (this.dictInheritedAttributes.indexOf(attr) !== -1)
 					res[attr] = attributes[attr];
 				}
 			}
 			else if (purpose === 'locallyEffective') {
 				for (var attr in attributes) {
-					if (dictLocallyEffectiveAttributes.indexOf(attr) !== -1)
+					if (this.dictLocallyEffectiveAttributes.indexOf(attr) !== -1)
 					res[attr] = attributes[attr];
 				}
 			}
 			else if (purpose === 'boxModelPart') {
 				for (var attr in attributes) {
-					if (dictBoxModelAttributes.indexOf(attr) !== -1)
+					if (this.dictBoxModelAttributes.indexOf(attr) !== -1)
 					res[attr] = attributes[attr];
 				}
 			}
 			else if (purpose === 'strictlyLocal') {
 				for (var attr in attributes) {
-					if (dictStrictlyLocalAttributes.indexOf(attr) !== -1)
+					if (this.dictStrictlyLocalAttributes.indexOf(attr) !== -1)
 					res[attr] = attributes[attr];
 				}
 			}
@@ -254,34 +260,215 @@ var enhancer = new StylePropertyEnhancer();
 			ast.forEach(function(declaration) {
 				// NOT YET CSSOM...
 				// We have to figure out the way we want to make use of it...
+				
+				// => We have for now a draft for a packed CSS property desciptor
+				// 	=> This seems the appropriate time to design this packed CSS property buffer,
+				//		and its associated reader object.
+				// 		=> with accessors
+				//		=> dictionary indexed emums (eg. tokenType, etc.)
+				//		=> a few helper function, like isDimension, isCanonical, etc. 
+				//		=> etc.
+				
 //				console.log(declaration.value);
 //				console.log(declaration.value.reduce(flattenDeclarationValues, ''));
 
 
 				if (declaration.value && typeof declaration.value !== 'number')		// Array.isArray(declaration.value)
-					attrList[declaration.name.hyphensToDromedar()] = declaration.value.reduce(flattenDeclarationValues, '');
+					attrList[declaration.name.hyphensToDromedar()] = declaration.value.reduce(this.flattenDeclarationValues, '');
 			});
 			
 			return new AdvancedAttributesListFactory(attrList);
 		}
 	});
 	
-	// A Reducer we use as a hacky serializer for the objects we get from the CSS ast
-	var flattenDeclarationValues = function(acc, item, key) {
-//		console.log(acc, key);
-		acc += item.tokenType !== 'WHITESPACE'
-			? (item.tokenType === ','
-				? ','
-				: (item.tokenType === 'DIMENSION' || item.tokenType === 'NUMBER'
-					? item.repr + (item.unit || '')
-					: (item.type === 'FUNCTION'		// NOT a DECLARATION (item.type): it's a high-level type
-						? item.name + '(' + item.value.reduce(flattenDeclarationValues, '') + ')'
-						: item.value)
+	// A callback for the Reducer we use as a hacky serializer for the objects we get from the CSS ast
+	Object.defineProperty(AdvancedAttributesListFactory, 'flattenDeclarationValues', {
+		value : function(acc, item, key) {
+//			console.log(acc, key);
+			acc += item.tokenType !== 'WHITESPACE'
+				? (item.tokenType === ','
+					? ','
+					: (item.tokenType === 'DIMENSION' || item.tokenType === 'NUMBER'
+						? item.repr + (item.unit || '')
+						: (item.type === 'FUNCTION'		// NOT a DECLARATION (item.type): it's a high-level type
+							? item.name + '(' + item.value.reduce(flattenDeclarationValues, '') + ')'
+							: item.value)
+					)
 				)
-			)
-			: (acc.length ? ' ' : '');		// avoid leading space in string CSS values
-		return acc;
+				: (acc.length ? ' ' : '');		// no leading space in resulting string CSS values
+			return acc;
+		}
+	});
+	
+	
+	
+	
+	
+	
+	
+	
+
+	
+	
+	Object.defineProperty(AdvancedAttributesListFactory, 'dictInheritedAttributes', {
+		value : [
+			'writingMode',					// horizontal-tb / vertical-lr / vertical-rl / sideways-rl / sideways-lr
+			'captionSide',					// top / bottom (title or legend of a table)
+			'listStyleType', 				// disc / circle / square / decimal / georgian, and anything you want... UNICODE codepoint ?
+			'listStylePosition',			// inside / outside (position of the ::marker : first inline box or before first inline box)
+			'visibility',					// visible / hidden
+			'textOrientation',				// mixed / upright / sideways / sideways-right / sideways-left / use-glyph-orientation
+			'textAlign',					// left / right / center / justify (start / end)
+			'textTransform',				// capitalize / uppercase / lowercase / none / full-width / full-size-kana (full-width aligns vertical and horizontal letters on a grid of text)
+			'textDecoration',				// underline / + dotted / + red / + wavy / + overline
+			'cursor',						// help / wait / crosshair / not-allowed / zoom-in / grab
+			'borderCollapse',				// collapse / separate
+			'whiteSpace',					// normal / nowrap / pre / pre-wrap / pre-line / break-spaces
+			'wordBreak'						// normal / break-all / keep-all / break-word
+			
+		]
+	});
+	
+	Object.defineProperty(AdvancedAttributesListFactory, 'dictLocallyEffectiveAttributes', {
+		value : [
+			'display',						// grid / flex / inline / inline-block / block / table / table-cell
+			'overflowX',					// hidden / visible / scroll
+			'overflowY',					// hidden / visible / scroll
+			'verticalAlign',				// baseline / top / middle / bottom / sub / text-top
+			'clear',						// left / right / both
+			'float',						// left / right (inline-start / inline-end)
+			'position'						// static / relative / absolute / fixed / sticky / top / bottom / right / left
+		]
+	});
+	
+	Object.defineProperty(AdvancedAttributesListFactory, 'dictBoxModelAttributes', {
+		value : [
+			'boxSizing',					// border-box / content-box
+			'width',						// DIMENSION
+			'height',						// DIMENSION
+			'top',							// DIMENSION
+			'left',							// DIMENSION
+			'right',						// DIMENSION
+			'bottom',						// DIMENSION
+			
+			'padding',						// DIMENSION
+			'margin',						// DIMENSION
+			
+			'paddingTop',					// DIMENSION
+			'paddingBottom',				// DIMENSION
+			'paddingLeft',					// DIMENSION
+			'paddingRight',					// DIMENSION
+			
+			'paddingBlockStart',			// DIMENSION
+			'paddingBlockEnd',				// DIMENSION
+			'paddingInlineStart',			// DIMENSION
+			'paddingInlineEnd',				// DIMENSION
+					
+			'marginTop',					// DIMENSION
+			'marginBottom',					// DIMENSION
+			'marginLeft',					// DIMENSION
+			'marginRight',					// DIMENSION
+			
+			'marginBlockStart',				// DIMENSION
+			'marginBlockEnd',				// DIMENSION
+			'marginInlineStart',			// DIMENSION
+			'marginInlineEnd',				// DIMENSION
+			
+			'borderBlockStart',				// width, style, color
+			'borderBlockEnd',				// width, style, color
+			'borderInlineStart',			// width, style, color
+			'borderInlineEnd',				// width, style, color
+			
+			'borderWidth',					// DIMENSION
+			'borderBlockStartWidth',		// DIMENSION
+			'borderBlockEndWidth',			// DIMENSION
+			'borderInlineStartWidth',		// DIMENSION
+			'borderInlineEndWidth',			// DIMENSION
+			
+			'borderStyle',					// none / dotted / inset / dashed / solid / double / groove
+			'borderBlockStartStyle',		// none / dotted / inset / dashed / solid / double / groove
+			'borderBlockEndStyle',			// none / dotted / inset / dashed / solid / double / groove
+			'borderInlineStartStyle',		// none / dotted / inset / dashed / solid / double / groove
+			'borderInlineEndStyle',			// none / dotted / inset / dashed / solid / double / groove
+			
+			'borderColor',					// COLOR
+			'borderBlockStartColor',		// COLOR
+			'borderBlockEndColor',			// COLOR
+			'borderInlineStartColor',		// COLOR
+			'borderInlineEndColor'			// COLOR
+	]
+	});
+	
+	Object.defineProperty(AdvancedAttributesListFactory, 'dictStrictlyLocalAttributes', {
+		value : [
+			'borderRadius',					// DIMENSION[1-4] / DIMENSION[1-4]
+	
+		    'borderTopLeftRadius',			// DIMENSION / DIMENSION
+		    'borderTopRightRadius',			// DIMENSION / DIMENSION
+		    'borderBottomRightRadius',		// DIMENSION / DIMENSION
+		    'borderBottomLeftRadius',		// DIMENSION / DIMENSION
+	
+			'borderStartStartRadius',		// DIMENSION / DIMENSION
+			'borderStartEndRadius',			// DIMENSION / DIMENSION
+			'borderEndStartRadius',			// DIMENSION / DIMENSION
+			'borderEndEndRadius',			// DIMENSION / DIMENSION
+	]
+	});
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	var allKnownPropertiesList = function() {
+		this.baseList.forEach(function(propertyName) {
+			this[propertyName] = 0;
+		}, this);
 	}
+	allKnownPropertiesList.prototype = {};
+	allKnownPropertiesList.prototype.objectType = '';
+	allKnownPropertiesList.prototype.baseList = (function() {
+		var knownAttributesList = [], knownAttributesDummyList;
+		for (let propertiesGroup in (knownAttributesDummyList = new AdvancedAttributesListFactory())) {
+			AdvancedAttributesListFactory.prototype[knownAttributesDummyList.propertiesGroup].forEach(function(propertyName) {
+				knownAttributesList.push(propertyName);
+			});
+		}
+		return knownAttributesList;
+	})();
+	allKnownPropertiesList.prototype.baseSlices = (function() {
+		var baseSlices = {}, start = 0;
+		for (let propertiesGroup in (knownAttributesDummyList = new AdvancedAttributesListFactory())) {
+			baseSlices[prop] = new BinarySlice(
+				start,
+				AdvancedAttributesListFactory.prototype[knownAttributesDummyList.propertiesGroup].length
+			);
+			start += AdvancedAttributesListFactory.prototype[knownAttributesDummyList.propertiesGroup].length;
+		}
+		return baseSlices;
+	})();
 	
 	
 	
@@ -290,105 +477,24 @@ var enhancer = new StylePropertyEnhancer();
 	
 	
 	
-
 	
+	Object.defineProperty(AdvancedAttributesListFactory, 'allKnownCSSPropertiesFactory', {
+		value : function() {
+			return new allKnownPropertiesList();
+		}
+	});
 	
-	var dictInheritedAttributes = [
-		'writingMode',					// horizontal-tb / vertical-lr / vertical-rl / sideways-rl / sideways-lr
-		'captionSide',					// top / bottom (title or legend of a table)
-		'listStyleType', 				// disc / circle / square / decimal / georgian, and anything you want... UNICODE codepoint ?
-		'listStylePosition',			// inside / outside (position of the ::marker : first inline box or before first inline box)
-		'visibility',					// visible / hidden
-		'textOrientation',				// mixed / upright / sideways / sideways-right / sideways-left / use-glyph-orientation
-		'textAlign',					// left / right / center / justify (start / end)
-		'textTransform',				// capitalize / uppercase / lowercase / none / full-width / full-size-kana (full-width aligns vertical and horizontal letters on a grid of text)
-		'textDecoration',				// underline / + dotted / + red / + wavy / + overline
-		'cursor',						// help / wait / crosshair / not-allowed / zoom-in / grab
-		'borderCollapse',				// collapse / separate
-		'whiteSpace',					// normal / nowrap / pre / pre-wrap / pre-line / break-spaces
-		'wordBreak'						// normal / break-all / keep-all / break-word
-		
-	];
+	Object.defineProperty(AdvancedAttributesListFactory, 'allKnownCSSPropertiesStaticMap', {
+		value : function() {
+			return allKnownPropertiesList.prototype.baseList;
+		}
+	});
 	
-	var dictLocallyEffectiveAttributes = [
-		'display',						// grid / flex / inline / inline-block / block / table / table-cell
-		'overflowX',					// hidden / visible / scroll
-		'overflowY',					// hidden / visible / scroll
-		'verticalAlign',				// baseline / top / middle / bottom / sub / text-top
-		'clear',						// left / right / both
-		'float',						// left / right (inline-start / inline-end)
-		'position'						// static / relative / absolute / fixed / sticky / top / bottom / right / left
-	];
-	
-	var dictBoxModelAttributes = [
-		'boxSizing',					// border-box / content-box
-		'width',						// DIMENSION
-		'height',						// DIMENSION
-		'top',							// DIMENSION
-		'left',							// DIMENSION
-		'right',						// DIMENSION
-		'bottom',						// DIMENSION
-		
-		'padding',						// DIMENSION
-		'margin',						// DIMENSION
-		
-		'paddingTop',					// DIMENSION
-		'paddingBottom',				// DIMENSION
-		'paddingLeft',					// DIMENSION
-		'paddingRight',					// DIMENSION
-		
-		'paddingBlockStart',			// DIMENSION
-		'paddingBlockEnd',				// DIMENSION
-		'paddingInlineStart',			// DIMENSION
-		'paddingInlineEnd',				// DIMENSION
-				
-		'marginTop',					// DIMENSION
-		'marginBottom',					// DIMENSION
-		'marginLeft',					// DIMENSION
-		'marginRight',					// DIMENSION
-		
-		'marginBlockStart',				// DIMENSION
-		'marginBlockEnd',				// DIMENSION
-		'marginInlineStart',			// DIMENSION
-		'marginInlineEnd',				// DIMENSION
-		
-		'borderBlockStart',				// width, style, color
-		'borderBlockEnd',				// width, style, color
-		'borderInlineStart',			// width, style, color
-		'borderInlineEnd',				// width, style, color
-		
-		'borderWidth',					// DIMENSION
-		'borderBlockStartWidth',		// DIMENSION
-		'borderBlockEndWidth',			// DIMENSION
-		'borderInlineStartWidth',		// DIMENSION
-		'borderInlineEndWidth',			// DIMENSION
-		
-		'borderStyle',					// none / dotted / inset / dashed / solid / double / groove
-		'borderBlockStartStyle',		// none / dotted / inset / dashed / solid / double / groove
-		'borderBlockEndStyle',			// none / dotted / inset / dashed / solid / double / groove
-		'borderInlineStartStyle',		// none / dotted / inset / dashed / solid / double / groove
-		'borderInlineEndStyle',			// none / dotted / inset / dashed / solid / double / groove
-		
-		'borderColor',					// COLOR
-		'borderBlockStartColor',		// COLOR
-		'borderBlockEndColor',			// COLOR
-		'borderInlineStartColor',		// COLOR
-		'borderInlineEndColor'			// COLOR
-	];
-	
-	var dictStrictlyLocalAttributes = [
-		'borderRadius',					// DIMENSION[1-4] / DIMENSION[1-4]
-
-	    'borderTopLeftRadius',			// DIMENSION / DIMENSION
-	    'borderTopRightRadius',			// DIMENSION / DIMENSION
-	    'borderBottomRightRadius',		// DIMENSION / DIMENSION
-	    'borderBottomLeftRadius',		// DIMENSION / DIMENSION
-
-		'borderStartStartRadius',		// DIMENSION / DIMENSION
-		'borderStartEndRadius',			// DIMENSION / DIMENSION
-		'borderEndStartRadius',			// DIMENSION / DIMENSION
-		'borderEndEndRadius',			// DIMENSION / DIMENSION
-	];
+	Object.defineProperty(AdvancedAttributesListFactory, 'allKnownCSSPropertiesBoudaries', {
+		value : function() {
+			return allKnownPropertiesList.prototype.baseSlices;
+		}
+	});
 	
 	
 	

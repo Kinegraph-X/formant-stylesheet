@@ -9,7 +9,7 @@ var StyleAttributes = require('src/editing/StyleAttributes');
 var AdvancedStyleAttributes = require('src/editing/SplittedAttributes');
 
 var BinarySchemaFactory = require('src/core/BinarySchema');
-var MemoryPartialBuffer = require('src/core/MemoryPartialBuffer');
+var MemorySingleBuffer = require('src/core/MemorySingleBuffer');
 var MemoryBufferStack = require('src/core/MemoryBufferStack');
 
 /**
@@ -25,7 +25,7 @@ var MemoryBufferStack = require('src/core/MemoryBufferStack');
 var Style = function(type, selector, attributes) {
 	this.selector = new CSSSelector(attributes.selector || selector);
 	
-	this.compactedViewOnSelector = new MemoryPartialBuffer(
+	this.compactedViewOnSelector = new MemorySingleBuffer(
 		Style.prototype.optimizedSelectorBufferSchema
 	);
 
@@ -33,7 +33,7 @@ var Style = function(type, selector, attributes) {
 	
 	// TAKE CARE OF PERF: we optimized the String.prototype.getNCharAsCharCodess method to get 3 chars most of the time. But that's pretty useless...
 	var substrDef = this.selector.extractMostSpecificPartFromSelector().toLowerCase().getNcharsAsCharCodesArray(3, 4);
-	this.populateCompactedViewOnSelector(this.compactedViewOnSelector, substrDef, this.selector.selectorProofingPartType);
+	this.populateCompactedViewOnSelector(substrDef, this.selector.selectorProofingPartType);
 	
 	// TODO: get rid of this horrible "NaN"
 	// 		=> we should never initialize a value to NaN
@@ -42,13 +42,6 @@ var Style = function(type, selector, attributes) {
 	this.attrIFace = new AdvancedStyleAttributes(this.type, attributes);
 }
 Style.prototype = {};
-
-//Style.prototype.constants = {
-//	rawSelectorIsProof : 0,
-//	idIsProof : 1,
-//	classIsProof : 2,
-//	tagIsProof : 3
-//}
 
 Style.prototype.linearize = function() {
 	return this.selector + ' { ' + '\n' + this.attrIFace.linearize() + '\n' + '}\n';
@@ -62,29 +55,29 @@ Style.prototype.removeFromStyleSheet = function(styleSheet) {
 	styleSheet.deleteRule(this.index);
 }
 
-Style.prototype.populateCompactedViewOnSelector = function(memoryPartialBuffer, substrDef, proofingPartType) {
+Style.prototype.populateCompactedViewOnSelector = function(substrDef, proofingPartType) {
 	// 16 bits values have to be declared as byte-tuples ([1, 0] would then represent 1, as all CPU's are now little-endian) 
 	// (GeneratorFor16bitsInt, responsible for the UID, shall return an array)
 	// Offset of the extracted string from the original string
-	memoryPartialBuffer.set(
+	this.compactedViewOnSelector.set(
 			[substrDef[0]],
 			Style.prototype.optimizedSelectorBufferSchema.startingOffsetInString.start
 		);
 	// Length of the extracted string from the original string
-	memoryPartialBuffer.set(
+	this.compactedViewOnSelector.set(
 			[substrDef[1].length],
 			Style.prototype.optimizedSelectorBufferSchema.stringLength.start
 		);
 	// Extract the most specific selector (specificity priority is: !important -> "style" DOM attr as a rule -> ID -> class/attribute/prop/pseudo-class -> nodeType/pseudo-elem)
-	memoryPartialBuffer.set(
+	this.compactedViewOnSelector.set(
 			substrDef[1],
 			Style.prototype.optimizedSelectorBufferSchema.stringBinaryEncoded.start
 		);
-	memoryPartialBuffer.set(
+	this.compactedViewOnSelector.set(
 			proofingPartType,
 			Style.prototype.optimizedSelectorBufferSchema.selectorProofingPartType.start
 		);
-	memoryPartialBuffer.set(
+	this.compactedViewOnSelector.set(
 			GeneratorFor16bitsInt.newUID(),
 			Style.prototype.optimizedSelectorBufferSchema.bufferUID.start
 		);
@@ -93,7 +86,7 @@ Style.prototype.populateCompactedViewOnSelector = function(memoryPartialBuffer, 
 	// Populate the masterStyleRegistry from which we shall later retrieve
 	// the -not- optimized part of the style object, i.e the current CSS rule
 	TypeManager.masterStyleRegistry.setItem(
-		memoryPartialBuffer.get(
+		this.compactedViewOnSelector.get(
 			Style.prototype.optimizedSelectorBufferSchema.bufferUID.start,
 			2
 		),
