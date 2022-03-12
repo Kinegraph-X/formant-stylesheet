@@ -7,7 +7,7 @@
 var StylePropertyEnhancer = require('src/editing/StylePropertyEnhancer');
 var enhancer = new StylePropertyEnhancer();
 
-var MemoryCSSPropertyBuffer = require('src/_LayoutEngine/MemoryCSSPropertyBuffer');
+var CSSPropertyBuffer = require('src/editing/CSSPropertyBuffer');
 var BinarySlice = require('src/core/BinarySlice');
 
 
@@ -173,9 +173,9 @@ var BinarySlice = require('src/core/BinarySlice');
 			attributes = arguments[1];
 			
 		this.stdAttributesList = new AttributesList(attributes);
-		this.InheritedAttributesList = new AttributesList(this.splitAttributes('inherited', attributes));
+		this.inheritedAttributesList = new AttributesList(this.splitAttributes('inherited', attributes));
 		this.locallyEffectiveAttributesList = new AttributesList(this.splitAttributes('locallyEffective', attributes));
-		this.boxModelPartAttributesList = new AttributesList(this.splitAttributes('boxModelPart', attributes));
+		this.boxModelAttributesList = new AttributesList(this.splitAttributes('boxModelPart', attributes));
 		this.strictlyLocalAttributesList = new AttributesList(this.splitAttributes('strictlyLocal', attributes));
 		
 //		console.log(this.stdAttributesList);
@@ -213,25 +213,25 @@ var BinarySlice = require('src/core/BinarySlice');
 				return attributes;
 			else if (purpose === 'inherited') {
 				for (var attr in attributes) {
-					if (this.dictInheritedAttributes.indexOf(attr) !== -1)
+					if (this.inheritedAttributes.indexOf(attr) !== -1)
 					res[attr] = attributes[attr];
 				}
 			}
 			else if (purpose === 'locallyEffective') {
 				for (var attr in attributes) {
-					if (this.dictLocallyEffectiveAttributes.indexOf(attr) !== -1)
+					if (this.locallyEffectiveAttributes.indexOf(attr) !== -1)
 					res[attr] = attributes[attr];
 				}
 			}
 			else if (purpose === 'boxModelPart') {
 				for (var attr in attributes) {
-					if (this.dictBoxModelAttributes.indexOf(attr) !== -1)
+					if (this.boxModelAttributes.indexOf(attr) !== -1)
 					res[attr] = attributes[attr];
 				}
 			}
 			else if (purpose === 'strictlyLocal') {
 				for (var attr in attributes) {
-					if (this.dictStrictlyLocalAttributes.indexOf(attr) !== -1)
+					if (this.strictlyLocalAttributes.indexOf(attr) !== -1)
 					res[attr] = attributes[attr];
 				}
 			}
@@ -278,13 +278,13 @@ var BinarySlice = require('src/core/BinarySlice');
 				if (declaration.value && typeof declaration.value !== 'number') {	// Array.isArray(declaration.value)
 					name = declaration.name.hyphensToDromedar();
 					
-					attrList[name] = declaration.value.reduce(this.flattenDeclarationValues, '');
-					this.packedCSSProperties[name] = this.populateCSSPropertyBuffer(
-						name,
-						declaration.value.filter(function(val) {
-							return token === 'DIMENSION';
-						})[0]
-					);
+					attrList[name] = declaration.value.reduce(AdvancedAttributesListFactory.flattenDeclarationValues, '');
+//					this.packedCSSProperties[name] = AdvancedAttributesListFactory.populateCSSPropertyBuffer(
+//						name,
+//						declaration.value.filter(function(val) {
+//							return token === 'DIMENSION';
+//						})[0]
+//					);
 				}
 			});
 			
@@ -294,33 +294,33 @@ var BinarySlice = require('src/core/BinarySlice');
 	
 	Object.defineProperty(AdvancedAttributesListFactory, 'populateCSSPropertyBuffer', {
 		value : function(parsedPropName, parsedPropValue) {
-			var CSSPropertyBuffer = new MemoryCSSPropertyBuffer(
-				MemoryCSSPropertyBuffer.prototype.optimizedBufferSchema
+			var CSSPropertyBuffer = new CSSPropertyBuffer(
+				CSSPropertyBuffer.prototype.bufferSchema
 			);
 			// 16 bits values have to be declared as byte-tuples ([1, 0] would then represent 1, as all CPU's are now little-endian) 
 			// (GeneratorFor16bitsInt, responsible for the UID, shall return an array)
 			// Offset of the extracted string from the original string
 			CSSPropertyBuffer.set(
 					[TokenTypes[parsedProp.token]],
-					MemoryCSSPropertyBuffer.prototype.optimizedBufferSchema.tokenType.start
+					CSSPropertyBuffer.prototype.bufferSchema.tokenType.start
 				);
 			// Length of the extracted string from the original string
 			CSSPropertyBuffer.set(
 					[parsedProp.value],
-					MemoryCSSPropertyBuffer.prototype.optimizedBufferSchema.value.start
+					CSSPropertyBuffer.prototype.bufferSchema.value.start
 				);
 			// Extract the most specific selector (specificity priority is: !important -> "style" DOM attr as a rule -> ID -> class/attribute/prop/pseudo-class -> nodeType/pseudo-elem)
 			CSSPropertyBuffer.set(
 					[0],		// parsedProp.type = "integer"
-					MemoryCSSPropertyBuffer.prototype.optimizedBufferSchema.propertyType.start
+					CSSPropertyBuffer.prototype.bufferSchema.propertyType.start
 				);
 			CSSPropertyBuffer.set(
-					[String.prototype.charCodeAt.apply(parsedProp.repr, 0, 1, 2)],
-					MemoryCSSPropertyBuffer.prototype.optimizedBufferSchema.repr.start
+					[parsedProp.repr.getNcharsAsCharArray(2, 0)],
+					CSSPropertyBuffer.prototype.bufferSchema.repr.start
 				);
 			CSSPropertyBuffer.set(
 					[Units[parsedProp.unit].idx],
-					MemoryCSSPropertyBuffer.prototype.optimizedBufferSchema.unit.start
+					CSSPropertyBuffer.prototype.bufferSchema.unit.start
 				);
 				
 				
@@ -344,13 +344,17 @@ var BinarySlice = require('src/core/BinarySlice');
 					: (item.tokenType === 'DIMENSION' || item.tokenType === 'NUMBER'
 						? item.repr + (item.unit || '')
 						: (item.type === 'FUNCTION'		// NOT a DECLARATION (item.type): it's a high-level type
-							? item.name + '(' + item.value.reduce(flattenDeclarationValues, '') + ')'
+							? item.name + '(' + item.value.reduce(AdvancedAttributesListFactory.flattenDeclarationValues, '') + ')'
 							: item.value)
 					)
 				)
 				: (acc.length ? ' ' : '');		// no leading space in resulting string CSS values
 			return acc;
 		}
+	});
+	
+	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'CSSPropertyBufferSize', {
+		value : CSSPropertyBuffer.prototype.bufferSchema.size
 	});
 	
 	
@@ -363,7 +367,7 @@ var BinarySlice = require('src/core/BinarySlice');
 
 	
 	
-	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'dictInheritedAttributes', {
+	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'inheritedAttributes', {
 		value : [
 			'writingMode',					// horizontal-tb / vertical-lr / vertical-rl / sideways-rl / sideways-lr
 			'captionSide',					// top / bottom (title or legend of a table)
@@ -382,7 +386,7 @@ var BinarySlice = require('src/core/BinarySlice');
 		]
 	});
 	
-	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'dictLocallyEffectiveAttributes', {
+	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'locallyEffectiveAttributes', {
 		value : [
 			'display',						// grid / flex / inline / inline-block / block / table / table-cell
 			'overflowX',					// hidden / visible / scroll
@@ -394,7 +398,7 @@ var BinarySlice = require('src/core/BinarySlice');
 		]
 	});
 	
-	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'dictBoxModelAttributes', {
+	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'boxModelAttributes', {
 		value : [
 			'boxSizing',					// border-box / content-box
 			'width',						// DIMENSION
@@ -452,7 +456,7 @@ var BinarySlice = require('src/core/BinarySlice');
 	]
 	});
 	
-	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'dictStrictlyLocalAttributes', {
+	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'strictlyLocalAttributes', {
 		value : [
 			'borderRadius',					// DIMENSION[1-4] / DIMENSION[1-4]
 	
@@ -571,36 +575,55 @@ var BinarySlice = require('src/core/BinarySlice');
 	
 	
 	
-	
-	
+	/**
+	 * VERY SILLY implementation of some sort of a static macro,
+	 * 		that'll be used/needed (as a statically defined property-list)
+	 * 		to populate CSSPropertySetBuffer's default value... 
+	 */
 	var allKnownPropertiesList = function() {
+		console.log(this);
 		this.baseList.forEach(function(propertyName) {
 			this[propertyName] = 0;
 		}, this);
 	}
 	allKnownPropertiesList.prototype = {};
-	allKnownPropertiesList.prototype.objectType = '';
-	allKnownPropertiesList.prototype.baseList = (function() {
-		var knownAttributesList = [], knownAttributesDummyList;
-		for (let propertiesGroup in (knownAttributesDummyList = new AdvancedAttributesListFactory())) {
-			Object.keys(knownAttributesDummyList[propertiesGroup]).forEach(function(propertyName) {
-				knownAttributesList.push(propertyName);
-			});
-		}
-		return knownAttributesList;
-	})();
-	allKnownPropertiesList.prototype.baseSlices = (function() {
-		var knownAttributesDummyList, baseSlices = {}, start = 0;
-		for (let propertiesGroup in (knownAttributesDummyList = new AdvancedAttributesListFactory())) {
-			baseSlices[propertiesGroup] = new BinarySlice(
-				start,
-				knownAttributesDummyList[propertiesGroup].length
-			);
-			start += knownAttributesDummyList[propertiesGroup].length;
-		}
-		return baseSlices;
-	})();
 	
+	// FIXME: if it's iterable, the props on the prototype are defined as "non enumerable" 
+	Object.defineProperty(allKnownPropertiesList.prototype, 'objectType', {
+		value : ''
+	});
+	Object.defineProperty(allKnownPropertiesList.prototype, 'baseList', {
+		value : (function() {
+//			console.log(new AdvancedAttributesListFactory());
+			var knownAttributesList = [];
+			for (let propertiesGroup in (new AdvancedAttributesListFactory())) {
+				propertiesGroup = propertiesGroup.lowerCaseFirstChar().replace(/List/, '');
+//				console.log(propertiesGroup, AdvancedAttributesListFactory.prototype[propertiesGroup]);
+				if (!AdvancedAttributesListFactory.prototype[propertiesGroup])
+					continue;
+				AdvancedAttributesListFactory.prototype[propertiesGroup].forEach(function(propertyName) {
+					knownAttributesList.push(propertyName);
+				});
+			}
+			return knownAttributesList;
+		})()
+	});
+	Object.defineProperty(allKnownPropertiesList.prototype, 'baseSlices', {
+		value : (function() {
+				var baseSlices = {}, start = 0;
+				for (let propertiesGroup in (new AdvancedAttributesListFactory())) {
+					propertiesGroup = propertiesGroup.lowerCaseFirstChar().replace(/List/, '');
+					if (!AdvancedAttributesListFactory.prototype[propertiesGroup])
+						continue;
+					baseSlices[propertiesGroup] = new BinarySlice(
+						start,
+						AdvancedAttributesListFactory.prototype[propertiesGroup].length
+					);
+					start += AdvancedAttributesListFactory.prototype[propertiesGroup].length;
+				}
+				return baseSlices;
+			})()
+		});
 	
 	
 	
@@ -611,6 +634,7 @@ var BinarySlice = require('src/core/BinarySlice');
 	
 	Object.defineProperty(AdvancedAttributesListFactory, 'allKnownCSSPropertiesFactory', {
 		value : function() {
+//			console.log('allKnownCSSPropertiesFactory');
 			return new allKnownPropertiesList();
 		}
 	});
