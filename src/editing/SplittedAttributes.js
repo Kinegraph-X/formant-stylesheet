@@ -1,7 +1,6 @@
 /**
- * Construct. Point
+ * Constructor AttributesList
  * 
- * @param type String : 
  */
  
 var StylePropertyEnhancer = require('src/editing/StylePropertyEnhancer');
@@ -12,7 +11,7 @@ var BinarySlice = require('src/core/BinarySlice');
 
 
 	/**
-	 * Construct. AttributesList
+	 * Constructor AttributesList
 	 * This abstract type shall be used as a base for the "splitted" styles:
 	 * "Inheritable" and "local" attributes are grouped in 2 different objects
 	 * in the "style" type. This allows important optimizations when embracing
@@ -645,7 +644,7 @@ var BinarySlice = require('src/core/BinarySlice');
 		}
 	});
 	
-	Object.defineProperty(AdvancedAttributesListFactory, 'allKnownCSSPropertiesBoudaries', {
+	Object.defineProperty(AdvancedAttributesListFactory, 'allKnownCSSPropertiesBoundaries', {
 		value : function() {
 			return allKnownPropertiesList.prototype.baseSlices;
 		}

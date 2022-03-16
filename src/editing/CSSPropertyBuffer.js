@@ -12,7 +12,7 @@ var CSSPropertyBuffer = function(initialLoad) {
 
 	//	this._occupancy = new Uint8Array(bufferSize);
 
-	this._buffer = new Uint8Array(propsCount);
+	this._buffer = new Uint8Array(this.bufferSchema.size);
 
 
 }
@@ -45,7 +45,7 @@ CSSPropertyBuffer.prototype.bufferSchema = BinarySchemaFactory(
 		1,
 		2,
 		1,
-		3,
+		5,		// FIXME: defining a tight limit to the size of the string representation of a number is obviously a "dont" (for now, lets assume it won't have consequences as long as we only use the 16bits representation of the number : the propertyValue)
 		1
 	]
 );

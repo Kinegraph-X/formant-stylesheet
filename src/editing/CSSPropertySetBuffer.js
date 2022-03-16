@@ -14,13 +14,34 @@ var CSSPropertySetBuffer = function(initialContent) {
 	MemoryMapBuffer.call(this, itemSize, initialContent);
 	this.objectType = 'CSSPropertySetBuffer';
 	
+//	console.log(this.propertiesAccessGroupsBoundaries);
 }
 CSSPropertySetBuffer.prototype = Object.create(MemoryMapBuffer.prototype);
 CSSPropertySetBuffer.prototype.objectType = 'CSSPropertySetBuffer';
 
-// FIXME: why is that obtained through a function call ?
+// TODO: is there a better way than obtaining those dictionaries and values through function calls ?
 CSSPropertySetBuffer.prototype.propertiesStaticMap = SplittedAttributes.allKnownCSSPropertiesFactory();
-CSSPropertySetBuffer.prototype.propertiesAccessGroupsBoudaries = SplittedAttributes.allKnownCSSPropertiesBoudaries();
+CSSPropertySetBuffer.prototype.propertiesAccessGroupsBoundaries = SplittedAttributes.allKnownCSSPropertiesBoundaries();
+
+CSSPropertySetBuffer.prototype.get = function() {
+	
+}
+
+CSSPropertySetBuffer.prototype.set = function() {
+	
+}
+
+CSSPropertySetBuffer.prototype.update = function() {
+	
+}
+
+CSSPropertySetBuffer.prototype.accessPropertyGroup = function(callback) {
+	
+}
+
+CSSPropertySetBuffer.prototype.updatePropertyGroup = function(givenPropertyGroup) {
+	
+}
 
 //CSSPropertySetBuffer.prototype.specializedMethod = function() {
 //	
