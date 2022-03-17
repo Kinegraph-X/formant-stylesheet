@@ -3,17 +3,20 @@
  * 
  */
  
-var StylePropertyEnhancer = require('src/editing/StylePropertyEnhancer');
-var enhancer = new StylePropertyEnhancer();
+//var StylePropertyEnhancer = require('src/editing/StylePropertyEnhancer');
+//var enhancer = new StylePropertyEnhancer();
 
+var MemoryMapBuffer = require('src/core/MemoryMapBuffer');
 var CSSPropertyBuffer = require('src/editing/CSSPropertyBuffer');
 var BinarySlice = require('src/core/BinarySlice');
 
+// require CSS-parser...
+//var parser = require('src/parsers/css-parser');
 
 	/**
 	 * Constructor AttributesList
 	 * This abstract type shall be used as a base for the "splitted" styles:
-	 * "Inheritable" and "local" attributes are grouped in 2 different objects
+	 * "Inheritable" and "local" attributes are grouped in 4 different objects
 	 * in the "style" type. This allows important optimizations when embracing
 	 * the concept of "component" as being decoupled from the DOM.
 	 * 	=> see AdvancedAttributesListFactory()
@@ -27,7 +30,7 @@ var BinarySlice = require('src/core/BinarySlice');
 		// and ported as the basic implementation of AttributesList (StyleAttributes.js)
 		
 		// TODO: WHY Array.isArray ? AttributesList should always be "object"...
-		// Find out how we once upon a time got an array...
+		// Find out how we, once upon a time, got an array...
 		// 		=> fixed in AdvancedAttributesList
 		if (typeof attributes === 'string' && arguments[1] && Array.isArray(arguments[1]))
 			attributes = arguments[1];
@@ -208,32 +211,40 @@ var BinarySlice = require('src/core/BinarySlice');
 	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'splitAttributes', {
 		value : function(purpose, attributes) {
 			var res = {};
+			
 			if (!purpose)
 				return attributes;
 			else if (purpose === 'inherited') {
 				for (var attr in attributes) {
-					if (this.inheritedAttributes.indexOf(attr) !== -1)
-					res[attr] = attributes[attr];
+					if (this.inheritedAttributes.indexOf(attr) !== -1) {
+						res[attr] = attributes[attr];
+					}
 				}
 			}
 			else if (purpose === 'locallyEffective') {
 				for (var attr in attributes) {
-					if (this.locallyEffectiveAttributes.indexOf(attr) !== -1)
-					res[attr] = attributes[attr];
+					if (this.locallyEffectiveAttributes.indexOf(attr) !== -1) {
+						res[attr] = attributes[attr];
+					}
 				}
 			}
 			else if (purpose === 'boxModelPart') {
 				for (var attr in attributes) {
-					if (this.boxModelAttributes.indexOf(attr) !== -1)
-					res[attr] = attributes[attr];
+					if (this.boxModelAttributes.indexOf(attr) !== -1) {
+						res[attr] = attributes[attr];
+					}
 				}
 			}
 			else if (purpose === 'strictlyLocal') {
 				for (var attr in attributes) {
-					if (this.strictlyLocalAttributes.indexOf(attr) !== -1)
-					res[attr] = attributes[attr];
+					if (this.strictlyLocalAttributes.indexOf(attr) !== -1) {
+						res[attr] = attributes[attr];
+					}
 				}
 			}
+			
+//			console.log(packedRes);
+			
 			return res;
 		} 
 	});
@@ -255,7 +266,8 @@ var BinarySlice = require('src/core/BinarySlice');
 	
 	Object.defineProperty(AdvancedAttributesListFactory, 'fromAST', {
 		value : function(ast) {
-			var name, value, attrList = {}, packedCSSProperty;
+			var name, value, attrList = {};
+//				packedCSSProperty = new PackedAttributeFactory();
 			// ast is an array of declarations
 			ast.forEach(function(declaration) {
 				// NOT YET CSSOM...
@@ -271,7 +283,7 @@ var BinarySlice = require('src/core/BinarySlice');
 				//		=> etc.
 				
 //				console.log(declaration.value);
-//				console.log(declaration.value.reduce(flattenDeclarationValues, ''));
+//				console.log(declaration.value.reduce(AdvancedAttributesListFactory.flattenDeclarationValues, ''));
 
 
 				if (declaration.value && typeof declaration.value !== 'number') {	// Array.isArray(declaration.value)
@@ -291,47 +303,42 @@ var BinarySlice = require('src/core/BinarySlice');
 		}
 	});
 	
-	Object.defineProperty(AdvancedAttributesListFactory, 'populateCSSPropertyBuffer', {
-		value : function(parsedPropName, parsedPropValue) {
-			var CSSPropertyBuffer = new CSSPropertyBuffer(
-				CSSPropertyBuffer.prototype.bufferSchema
-			);
-			// 16 bits values have to be declared as byte-tuples ([1, 0] would then represent 1, as all CPU's are now little-endian) 
-			// (GeneratorFor16bitsInt, responsible for the UID, shall return an array)
-			// Offset of the extracted string from the original string
-			CSSPropertyBuffer.set(
-					[TokenTypes[parsedProp.token]],
-					CSSPropertyBuffer.prototype.bufferSchema.tokenType.start
-				);
-			// Length of the extracted string from the original string
-			CSSPropertyBuffer.set(
-					[parsedProp.value],
-					CSSPropertyBuffer.prototype.bufferSchema.value.start
-				);
-			// Extract the most specific selector (specificity priority is: !important -> "style" DOM attr as a rule -> ID -> class/attribute/prop/pseudo-class -> nodeType/pseudo-elem)
-			CSSPropertyBuffer.set(
-					[0],		// parsedProp.type = "integer"
-					CSSPropertyBuffer.prototype.bufferSchema.propertyType.start
-				);
-			CSSPropertyBuffer.set(
-					[parsedProp.repr.getNcharsAsCharArray(2, 0)],
-					CSSPropertyBuffer.prototype.bufferSchema.repr.start
-				);
-			CSSPropertyBuffer.set(
-					[Units[parsedProp.unit].idx],
-					CSSPropertyBuffer.prototype.bufferSchema.unit.start
-				);
-				
-				
-			// Populate ?
-//			TypeManager.masterStyleRegistry.setItem(
-//				parsedPropName,
-//				CSSPropertyBuffer
+//	Object.defineProperty(AdvancedAttributesListFactory, 'populateCSSPropertyBuffer', {
+//		value : function(parsedPropName, parsedPropValue) {
+//			var CSSPropertyBuffer = new CSSPropertyBuffer(
+//				CSSPropertyBuffer.prototype.bufferSchema
 //			);
-
-			return CSSPropertyBuffer;
-		}
-	})
+//			// 16 bits values have to be declared as byte-tuples ([1, 0] would then represent 1, as all CPU's are now little-endian) 
+//			// (GeneratorFor16bitsInt, responsible for the UID, shall return an array)
+//			// Offset of the extracted string from the original string
+//			CSSPropertyBuffer.set(
+//					[TokenTypes[parsedProp.token]],
+//					CSSPropertyBuffer.prototype.bufferSchema.tokenType.start
+//				);
+//			// Length of the extracted string from the original string
+//			CSSPropertyBuffer.set(
+//					[parsedProp.value],
+//					CSSPropertyBuffer.prototype.bufferSchema.value.start
+//				);
+//			// Extract the most specific selector (specificity priority is: !important -> "style" DOM attr as a rule -> ID -> class/attribute/prop/pseudo-class -> nodeType/pseudo-elem)
+//			CSSPropertyBuffer.set(
+//					[0],		// parsedProp.type = "integer"
+//					CSSPropertyBuffer.prototype.bufferSchema.propertyType.start
+//				);
+//			CSSPropertyBuffer.set(
+//					[parsedProp.repr.getNcharsAsCharArray(2, 0)],
+//					CSSPropertyBuffer.prototype.bufferSchema.repr.start
+//				);
+//			CSSPropertyBuffer.set(
+//					[Units[parsedProp.unit].idx],
+//					CSSPropertyBuffer.prototype.bufferSchema.unit.start
+//				);
+//				
+//				
+//
+//			return CSSPropertyBuffer;
+//		}
+//	})
 	
 	// A callback for the Reducer we use as a hacky serializer for the objects we get from the CSS ast
 	Object.defineProperty(AdvancedAttributesListFactory, 'flattenDeclarationValues', {
@@ -470,98 +477,129 @@ var BinarySlice = require('src/core/BinarySlice');
 			'borderEndEndRadius',			// DIMENSION / DIMENSION
 	]
 	});
-	
+
+
+
+
+/*
+ * The following values are declared and used in the CSSPropertyBuffer class
+ */
+
+
 	//\w+\.prototype\.tokenType\s?=\s?"[^"]+";
 
-	var TokenTypes = {};
-	TokenTypes.BadStringToken = 0;
-	TokenTypes.BadURLToken = 1;
-	TokenTypes.WhitespaceToken = 2;
-	TokenTypes.CDOToken = 3;
-	TokenTypes.CDCToken = 4;
-	TokenTypes.ColonToken = 5;
-	TokenTypes.SemicolonToken = 6;
-	TokenTypes.CommaToken = 7;
-	TokenTypes.OpenCurlyToken = 8;
-	TokenTypes.CloseCurlyToken = 9;
-	TokenTypes.OpenSquareToken = 10;
-	TokenTypes.CloseSquareToken = 11;
-	TokenTypes.OpenParenToken = 12;
-	TokenTypes.CloseParenToken = 13;
-	TokenTypes.IncludeMatchToken = 14;
-	TokenTypes.DashMatchToken = 15;
-	TokenTypes.PrefixMatchToken = 16;
-	TokenTypes.SuffixMatchToken = 17;
-	TokenTypes.SubstringMatchToken = 18;
-	TokenTypes.ColumnToken = 19;
-	TokenTypes.EOFToken = 20;
-	TokenTypes.DelimToken = 21;
-	TokenTypes.IdentToken = 22;
-	TokenTypes.FunctionToken = 23;
-	TokenTypes.AtKeywordToken = 24;
-	TokenTypes.HashToken = 25;
-	TokenTypes.StringToken = 26;
-	TokenTypes.URLToken = 27;
-	TokenTypes.NumberToken = 28;
-	TokenTypes.PercentageToken = 29;
-	TokenTypes.DimensionToken = 30;
+//	var TokenTypes = {};
+//	TokenTypes.BadStringToken = 0;
+//	TokenTypes.BadURLToken = 1;
+//	TokenTypes.WhitespaceToken = 2;
+//	TokenTypes.CDOToken = 3;
+//	TokenTypes.CDCToken = 4;
+//	TokenTypes.ColonToken = 5;
+//	TokenTypes.SemicolonToken = 6;
+//	TokenTypes.CommaToken = 7;
+//	TokenTypes.OpenCurlyToken = 8;
+//	TokenTypes.CloseCurlyToken = 9;
+//	TokenTypes.OpenSquareToken = 10;
+//	TokenTypes.CloseSquareToken = 11;
+//	TokenTypes.OpenParenToken = 12;
+//	TokenTypes.CloseParenToken = 13;
+//	TokenTypes.IncludeMatchToken = 14;
+//	TokenTypes.DashMatchToken = 15;
+//	TokenTypes.PrefixMatchToken = 16;
+//	TokenTypes.SuffixMatchToken = 17;
+//	TokenTypes.SubstringMatchToken = 18;
+//	TokenTypes.ColumnToken = 19;
+//	TokenTypes.EOFToken = 20;
+//	TokenTypes.DelimToken = 21;
+//	TokenTypes.IdentToken = 22;
+//	TokenTypes.FunctionToken = 23;
+//	TokenTypes.AtKeywordToken = 24;
+//	TokenTypes.HashToken = 25;
+//	TokenTypes.StringToken = 26;
+//	TokenTypes.URLToken = 27;
+//	TokenTypes.NumberToken = 28;
+//	TokenTypes.PercentageToken = 29;
+//	TokenTypes.DimensionToken = 30;
 	
 	// ^\t(\w{1,2})\s?\t\s?\t(\w+)
 	// Units.\1 = {\Runit : '\1',\R\tfullName : '\2'\R}
 	
-	var Units = {};
-	Units.cm = {
-		idx : 0,
-		unit : 'cm',
-		fullName : 'centimeters',
-		equivStr : '1cm = 96px/2.54'
-	} 	
-	Units.mm = {
-		idx : 1,
-		unit : 'mm',
-		fullName : 'millimeters',
-		equivStr : '1mm = 1/10th of 1cm'
-	} 	
-	Units.Q = {
-		idx : 2,
-		unit : 'Q',
-		fullName : 'quarter',
-		equivStr : '1Q = 1/40th of 1cm'
+//	var Units = {};
+//	Units.cm = {
+//		idx : 0,
+//		unit : 'cm',
+//		fullName : 'centimeters',
+//		equivStr : '1cm = 96px/2.54'
+//	} 	
+//	Units.mm = {
+//		idx : 1,
+//		unit : 'mm',
+//		fullName : 'millimeters',
+//		equivStr : '1mm = 1/10th of 1cm'
+//	} 	
+//	Units.Q = {
+//		idx : 2,
+//		unit : 'Q',
+//		fullName : 'quarter',
+//		equivStr : '1Q = 1/40th of 1cm'
+//	}
+//	Units.in = {
+//		idx : 3,
+//		unit : 'in',
+//		fullName : 'inches',
+//		equivStr : '1in = 2.54cm = 96px'
+//	}
+//	Units.pc = {
+//		idx : 4,
+//		unit : 'pc',
+//		fullName : 'picas',
+//		equivStr : '1pc = 1/6th of 1in'
+//	}
+//	Units.pt = {
+//		idx : 5,
+//		unit : 'pt',
+//		fullName : 'points',
+//		equivStr : '1pt = 1/72th of 1in'
+//	}
+//	Units.px = {
+//		idx : 6,
+//		unit : 'px',
+//		fullName : 'pixels',
+//		equivStr : '1px = 1/96th of 1in '
+//	}
+	
+	
+	
+	
+	
+	/*
+	 * constructor PackedAttributeFactory
+	 */
+	var PackedAttributeFactory = function(attributesGroupName) {
+		this.attributesGroupName = attributesGroupName;
+		CSSPropertyBuffer.call(this);
 	}
-	Units.in = {
-		idx : 3,
-		unit : 'in',
-		fullName : 'inches',
-		equivStr : '1in = 2.54cm = 96px'
-	}
-	Units.pc = {
-		idx : 4,
-		unit : 'pc',
-		fullName : 'picas',
-		equivStr : '1pc = 1/6th of 1in'
-	}
-	Units.pt = {
-		idx : 5,
-		unit : 'pt',
-		fullName : 'points',
-		equivStr : '1pt = 1/72th of 1in'
-	}
-	Units.px = {
-		idx : 6,
-		unit : 'px',
-		fullName : 'pixels',
-		equivStr : '1px = 1/96th of 1in '
-	}
 	
+	PackedAttributeFactory.prototype = Object.create(CSSPropertyBuffer.prototype);
 	
+	Object.defineProperty(PackedAttributeFactory.prototype, 'objectType', {
+		value : 'PackedAttributeFactory',
+		writable : true
+	});
 	
+	Object.defineProperty(PackedAttributeFactory.prototype, 'attributesGroupName', {
+		value : '',
+		writable : true
+	});
 	
-	
-	
-	
-	
-	
-	
+	Object.defineProperty(PackedAttributeFactory.prototype, 'fromAttributesList', {
+		value : function(advancedAttributesList) {
+			
+			
+			
+//			CSSPropertyBuffer
+		}
+	});
 	
 	
 	
@@ -587,7 +625,7 @@ var BinarySlice = require('src/core/BinarySlice');
 	}
 	allKnownPropertiesList.prototype = {};
 	
-	// FIXME: if it's iterable, the props on the prototype are defined as "non enumerable" 
+	// FIXME: (seems fixed) if it's iterable, the props on the prototype are defined as "non enumerable" 
 	Object.defineProperty(allKnownPropertiesList.prototype, 'objectType', {
 		value : ''
 	});
@@ -629,7 +667,9 @@ var BinarySlice = require('src/core/BinarySlice');
 	
 	
 	
-	
+//	Object.defineProperty(AdvancedAttributesListFactory, 'TokenTypes', {
+//		value : TokenTypes
+//	});
 	
 	Object.defineProperty(AdvancedAttributesListFactory, 'allKnownCSSPropertiesFactory', {
 		value : function() {
