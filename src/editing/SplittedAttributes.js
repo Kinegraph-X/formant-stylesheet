@@ -11,7 +11,7 @@ var CSSPropertyBuffer = require('src/editing/CSSPropertyBuffer');
 var BinarySlice = require('src/core/BinarySlice');
 
 // require CSS-parser...
-//var parser = require('src/parsers/css-parser');
+//var parser = require('src/parsers/css-parser_forked');
 
 	/**
 	 * Constructor AttributesList
@@ -173,8 +173,9 @@ var BinarySlice = require('src/core/BinarySlice');
 		
 		if ((typeof attributes === 'string' || !attributes) && Object.prototype.toString.call(arguments[1]) === '[object Object]')
 			attributes = arguments[1];
-			
+		
 		this.stdAttributesList = new AttributesList(attributes);
+//		console.log(this.stdAttributesList);
 		this.inheritedAttributesList = new AttributesList(this.splitAttributes('inherited', attributes));
 		this.locallyEffectiveAttributesList = new AttributesList(this.splitAttributes('locallyEffective', attributes));
 		this.boxModelAttributesList = new AttributesList(this.splitAttributes('boxModelPart', attributes));
@@ -349,9 +350,12 @@ var BinarySlice = require('src/core/BinarySlice');
 					? ','
 					: (item.tokenType === 'DIMENSION' || item.tokenType === 'NUMBER'
 						? item.repr + (item.unit || '')
-						: (item.type === 'FUNCTION'		// NOT a DECLARATION (item.type): it's a high-level type
-							? item.name + '(' + item.value.reduce(AdvancedAttributesListFactory.flattenDeclarationValues, '') + ')'
-							: item.value)
+						: (item.tokenType === 'PERCENTAGE'
+							? item.repr + '%'
+							: (item.type === 'FUNCTION'		// NOT a DECLARATION (item.type): it's a high-level type
+								? item.name + '(' + item.value.reduce(AdvancedAttributesListFactory.flattenDeclarationValues, '') + ')'
+								: item.value)
+						)
 					)
 				)
 				: (acc.length ? ' ' : '');		// no leading space in resulting string CSS values
@@ -372,7 +376,7 @@ var BinarySlice = require('src/core/BinarySlice');
 	
 
 	
-	
+	// This is re-defined (in another format) in CSSPropertyDescriptors
 	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'inheritedAttributes', {
 		value : [
 			'writingMode',					// horizontal-tb / vertical-lr / vertical-rl / sideways-rl / sideways-lr
@@ -380,6 +384,10 @@ var BinarySlice = require('src/core/BinarySlice');
 			'listStyleType', 				// disc / circle / square / decimal / georgian, and anything you want... UNICODE codepoint ?
 			'listStylePosition',			// inside / outside (position of the ::marker : first inline box or before first inline box)
 			'visibility',					// visible / hidden
+			'fontFamily',					// list of IDENT values
+			'fontSize',						// DIMENSION
+			'lineHeight',					// DIMENSION
+			'color',						// HASH or FUNCTION
 			'textOrientation',				// mixed / upright / sideways / sideways-right / sideways-left / use-glyph-orientation
 			'textAlign',					// left / right / center / justify (start / end)
 			'textTransform',				// capitalize / uppercase / lowercase / none / full-width / full-size-kana (full-width aligns vertical and horizontal letters on a grid of text)
@@ -400,7 +408,20 @@ var BinarySlice = require('src/core/BinarySlice');
 			'verticalAlign',				// baseline / top / middle / bottom / sub / text-top
 			'clear',						// left / right / both
 			'float',						// left / right (inline-start / inline-end)
-			'position'						// static / relative / absolute / fixed / sticky / top / bottom / right / left
+			'position',						// static / relative / absolute / fixed / sticky / top / bottom / right / left
+			
+			'flex',							// SHORTHAND
+			'flexFlow',						// SHORTHAND
+			'flexDirection',				// row / column
+			'flexWrap',						// nowrap / wrap
+			'flexSchrink',					// INTEGER
+			'flexGrow',						// INTEGER
+			'flexBase',						// INTEGER
+			
+			'justifyContent',				// flex-start | flex-end | center | space-evenly | space-between | space-around 
+			'alignItems',					// flex-start | flex-end | center | baseline | stretch
+			'alignSelf',					// auto | flex-start | flex-end | center | baseline | stretch
+			'alignContent'					// flex-start | flex-end | center | space-between | space-around | stretch  	
 		]
 	});
 	
@@ -414,8 +435,9 @@ var BinarySlice = require('src/core/BinarySlice');
 			'right',						// DIMENSION
 			'bottom',						// DIMENSION
 			
-			'padding',						// DIMENSION
-			'margin',						// DIMENSION
+			'padding',						// SHORTHAND
+			'margin',						// SHORTHAND
+			'border',						// SHORTHAND
 			
 			'paddingTop',					// DIMENSION
 			'paddingBottom',				// DIMENSION
@@ -423,9 +445,9 @@ var BinarySlice = require('src/core/BinarySlice');
 			'paddingRight',					// DIMENSION
 			
 			'paddingBlockStart',			// DIMENSION
+			'paddingInlineEnd',				// DIMENSION
 			'paddingBlockEnd',				// DIMENSION
 			'paddingInlineStart',			// DIMENSION
-			'paddingInlineEnd',				// DIMENSION
 					
 			'marginTop',					// DIMENSION
 			'marginBottom',					// DIMENSION
@@ -464,6 +486,13 @@ var BinarySlice = require('src/core/BinarySlice');
 	
 	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'strictlyLocalAttributes', {
 		value : [
+			'background',					// SHORTHAND
+			'backgroundColor',				//
+			'backgroundPosition',			//
+			'backgroundSize',				//
+			'backgroundImage',				//
+			'backgroundRepeat',				//
+			
 			'borderRadius',					// DIMENSION[1-4] / DIMENSION[1-4]
 	
 		    'borderTopLeftRadius',			// DIMENSION / DIMENSION
@@ -575,31 +604,31 @@ var BinarySlice = require('src/core/BinarySlice');
 	/*
 	 * constructor PackedAttributeFactory
 	 */
-	var PackedAttributeFactory = function(attributesGroupName) {
-		this.attributesGroupName = attributesGroupName;
-		CSSPropertyBuffer.call(this);
-	}
-	
-	PackedAttributeFactory.prototype = Object.create(CSSPropertyBuffer.prototype);
-	
-	Object.defineProperty(PackedAttributeFactory.prototype, 'objectType', {
-		value : 'PackedAttributeFactory',
-		writable : true
-	});
-	
-	Object.defineProperty(PackedAttributeFactory.prototype, 'attributesGroupName', {
-		value : '',
-		writable : true
-	});
-	
-	Object.defineProperty(PackedAttributeFactory.prototype, 'fromAttributesList', {
-		value : function(advancedAttributesList) {
-			
-			
-			
-//			CSSPropertyBuffer
-		}
-	});
+//	var PackedAttributeFactory = function(attributesGroupName) {
+//		this.attributesGroupName = attributesGroupName;
+//		CSSPropertyBuffer.call(this);
+//	}
+//	
+//	PackedAttributeFactory.prototype = Object.create(CSSPropertyBuffer.prototype);
+//	
+//	Object.defineProperty(PackedAttributeFactory.prototype, 'objectType', {
+//		value : 'PackedAttributeFactory',
+//		writable : true
+//	});
+//	
+//	Object.defineProperty(PackedAttributeFactory.prototype, 'attributesGroupName', {
+//		value : '',
+//		writable : true
+//	});
+//	
+//	Object.defineProperty(PackedAttributeFactory.prototype, 'fromAttributesList', {
+//		value : function(advancedAttributesList) {
+//			
+//			
+//			
+////			CSSPropertyBuffer
+//		}
+//	});
 	
 	
 	
@@ -618,7 +647,7 @@ var BinarySlice = require('src/core/BinarySlice');
 	 * 		to populate CSSPropertySetBuffer's default value... 
 	 */
 	var allKnownPropertiesList = function() {
-		console.log(this);
+//		console.log(this);
 		this.baseList.forEach(function(propertyName) {
 			this[propertyName] = 0;
 		}, this);

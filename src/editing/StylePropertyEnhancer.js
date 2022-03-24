@@ -5,8 +5,9 @@
  */
 
 var CSSPropertyBuffer = require('src/editing/CSSPropertyBuffer');
+
 // require CSS-parser...
-var parser = require('src/parsers/css-parser');
+var parser = require('src/parsers/css-parser_forked');
 
 
 var StylePropertyEnhancer = function() {
@@ -15,12 +16,12 @@ var StylePropertyEnhancer = function() {
 }
 
 StylePropertyEnhancer.prototype.toCSSPropertyBuffer = function(attrName, attrValue) {
-	var packedCSSProperty = new CSSPropertyBuffer();
+	var packedCSSProperty = new CSSPropertyBuffer(null, attrName);
+//	console.log(attrName, attrValue);
+//	console.log(packedCSSProperty);
+//	console.log(parser.parseAListOfComponentValues(attrValue));
 	
-	packedCSSProperty.setValue(
-		attrName,
-		parser.parseAListOfComponentValues(attrValue)
-		);
+	packedCSSProperty.setValue(parser.parseAListOfComponentValues(attrValue));
 	
 	return packedCSSProperty;
 }
