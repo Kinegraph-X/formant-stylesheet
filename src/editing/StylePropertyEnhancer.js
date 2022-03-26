@@ -5,8 +5,6 @@
  */
 
 var CSSPropertyBuffer = require('src/editing/CSSPropertyBuffer');
-
-// require CSS-parser...
 var parser = require('src/parsers/css-parser_forked');
 
 

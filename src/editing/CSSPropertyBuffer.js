@@ -5,146 +5,108 @@
 
 var TypeManager = require('src/core/TypeManager');
 var BinarySchemaFactory = require('src/core/BinarySchema');
+var GeneratorFor16bitsInt = require('src/core/UIDGenerator').GeneratorFor16bitsInt;
 var CSSPropertyDescriptors = require('src/editing/CSSPropertyDescriptors');
-
+var parser = require('src/parsers/css-parser_forked');
 
 var CSSPropertyBuffer = function(initialLoad, propName) {
 	this.objectType = 'CSSPropertyBuffer';
-
 	this._buffer = new Uint8Array(initialLoad || this.bufferSchema.size);
 	
-	var defaultValue;
-	if (typeof initialLoad === 'undefined' || initialLoad === null
-			|| (
-				Object.getPrototypeOf(initialLoad) === Uint8Array.prototype
-					&& initialLoad[0] === 0
-			)
-		) {
-//			console.log(propName);
-			defaultValue = CSSPropertyDescriptors[propName].prototype.initialValue;
-//			if (typeof defaultValue === 'undefined')
-//				console.log(propName, defaultValue);
-			if (typeof defaultValue !== 'undefined' && defaultValue !== null) {
-//				if (!Array.isArray(defaultValue))
-					this.setValue(this.getValueAsIfParsed(defaultValue));
-//				else {
-//					var expandedPropertyName, expandedPropertyDefaultValue;
-//					defaultValue.forEach(function(val, key) {
-//						expandedPropertyName = CSSPropertyDescriptors[propName].expandedPropNames[key];
-//						console.log(propName, expandedPropertyName);
-//						expandedPropertyDefaultValue = CSSPropertyDescriptors[expandedPropertyName].prototype.initialValue;
-//						this.setValue(this.getValueAsIfParsed(defaultValue));
-//					}, this);
-//				}
-			}
-	}
+//	if (typeof initialLoad === 'undefined' || initialLoad === null
+//			|| (
+//				Object.getPrototypeOf(initialLoad) === Uint8Array.prototype
+//					&& initialLoad[0] === 0
+//			)
+//		) {
+//			var defaultValue = CSSPropertyDescriptors[propName].prototype.initialValue;
+//			
+//			if (typeof defaultValue !== 'undefined' && defaultValue !== null) {
+//				this.setValue(this.parseValue(defaultValue));
+//			}
+//	}
 }
 CSSPropertyBuffer.prototype = Object.create(Uint8Array.prototype);
 CSSPropertyBuffer.prototype.objectType = 'CSSPropertyBuffer';
 
-CSSPropertyBuffer.prototype.getValueAsString = function(valueName) {
-	return this.bufferedValueToString();
-}
-
-CSSPropertyBuffer.prototype.getValueAsNumber = function() {
-	return this.bufferedValueToNumber();
-}
-
 CSSPropertyBuffer.prototype.setValue = function(parsedValue) {
-	var valueAsParsed, tokenType;
-	// if the property is a shorthand property, or if the property may be abbreviated,
-	// 		we concatenate back
-	// => shorthands are then handled (expanded) in CSSPropertySetBuffer.setPropFromShorthand()
-	// => abbreviated props are also handled in a branch of CSSPropertySetBuffer.setPropFromShorthand()
-	var concatVal = ''; 
+	// For now, we haven't yet populated the initlaValue for each CSSPropertyDescriptor.
+	// So this function is very frequently called with an empty array
+	if (!parsedValue.length)
+		return;
 	
-	if (parsedValue.length > 1) {
-//		console.log(parsedValue);
-		var tokenTypeFromParser;
-		parsedValue.forEach(function(val) {
-			tokenTypeFromParser = Object.getPrototypeOf(val).tokenType;
-			if (tokenTypeFromParser === "WHITESPACE")
-				concatVal += ' ';
-			else if (tokenTypeFromParser === "COMA")
-				concatVal += val.value + ',';
-			else if (tokenTypeFromParser === "HASH")
-				concatVal += '#' + val.value;
-			else if (tokenTypeFromParser === "PERCENTAGE")
-				concatVal += val.repr + '%';
-			else
-				concatVal += typeof val.repr !== 'undefined' ? val.repr + val.unit : val.value;
-		}, this);
-		
-		valueAsParsed = DummyTokenFromParserFactory('NON_PARSED');
-		valueAsParsed.value = concatVal;
-		tokenType = 'NonParsedToken';
-		valueAsParsed.type ='string';
-		
-//		console.log(concatVal, valueAsParsed);
-	}
-	else {
-//		console.log(parsedValue);
+	var valueAsParsed, tokenType, concatVal;
+	// if the property is a shorthand property, or if the property may be abbreviated,
+	// we concatenate back
+	// => shorthands are then handled (expanded) in CSSPropertySetBuffer.setPropFromShorthand()
+	// => abbreviated props are also handled (in a branch) of CSSPropertySetBuffer.setPropFromShorthand()
+	
+	if (parsedValue.length === 1) {
 		tokenType = Object.getPrototypeOf(parsedValue[0]).tokenType.capitalizeFirstChar() + 'Token';
+//		console.log(tokenType);
 		if (tokenType === 'FunctionToken')
 			valueAsParsed = this.functionToCanonical(parsedValue[0]);
 		else
-			valueAsParsed = parsedValue[0];
-//		console.log(valueAsParsed);
-		valueAsParsed.type = this.handleTypesFromCSSSpec(valueAsParsed, tokenType)
+			valueAsParsed = this.fixValueFromParser(parsedValue[0]);
+	}
+	else if (parsedValue.length > 1){
+		concatVal = this.concatenateBackFromParser(parsedValue);
+		tokenType = 'NonparsedToken';
+		
+		// Concatenated values are typed as "Non Parsed",
+		// and then, the valueAsParsed only has a repr property.
+		valueAsParsed = new (
+			LocalTokenFromParserFactory(null, 'NONPARSED')
+			)(
+				tokenType,
+				null,
+				null,
+				'string',
+				concatVal
+			);
 	}
 	
 	this.populate(tokenType, valueAsParsed);
 }
 
-CSSPropertyBuffer.prototype.handleTypesFromCSSSpec = function(val, tokenType) {
-	return val.type === 'unrestricted' || (tokenType === 'FunctionToken' && val.name === 'rgb')
-		? 'color'
-		: (tokenType === 'PercentageToken'
-			? 'percentage'
-			: (typeof val.type === 'undefined'
-				? 'string'
-				: val.type)
-			);
-}
+
 
 CSSPropertyBuffer.prototype.functionToCanonical = function(valueAsParsed) {
 	var value, tokenTypeFromParser;
-//	console.log(valueAsParsed);
-	if (valueAsParsed.name === 'rgb') {
-		value = DummyTokenFromParserFactory('HASH');
-		value.value = '';
+	
+	if (valueAsParsed.name === 'rgb' || valueAsParsed.name === 'rgba') {
+		value = new (LocalTokenFromParserFactory(null, 'HASH'))();
+		value.repr = '#';
 		valueAsParsed.value.forEach(function(val) {
 			tokenTypeFromParser = Object.getPrototypeOf(val).tokenType;
-//			console.log(tokenTypeFromParser, val);
 			if (tokenTypeFromParser === "WHITESPACE" || tokenTypeFromParser === "COMMA")
 				return;
-			else //{
-//				console.log('NOT COMMA', val);
-				value.value += val.value.toString(16).padStart(2, '0');
-//			}
+			else 
+				value.repr += val.value.toString(16).padStart(2, '0');
 		}, this);
-		value.repr = value.value;
+		return value;
 	}
-//	console.log(value);
-	return value;
+	else {
+		console.warn('CSSPropertyBuffer->functionToCanonical: unsupported function given (' + valueAsParsed.name + ').');
+		return new (LocalTokenFromParserFactory(null, 'UNDEFINED'))();
+	} 
 }
 
 CSSPropertyBuffer.prototype.populate = function(tokenType, value) {
+	
 	// the buffer size : 64 bytes buffers shall align well on a 2048KB L2 CPU cache
 	// 16 bits values have to be declared as byte-tuples ([1, 0] would then represent 1, as all CPU's are now little-endian) 
 	// (GeneratorFor16bitsInt, responsible for the UID, shall return an array)
 	
-	// FIXME: avoid the magic number 19 (set it on the prototype) and extend the buffer size to 64
+	var normalizedValue = this.fixValueFromParser(value);
 	
-	// TODO: OPTIMIZE, OPTIMIZE : => do the heavy work only once
-	// => Unifiy value.value and value.repr => depending on the fact it is a percentage or not :
-	// 		=> value.repr is value.value + "%"
-	// 		=> value.repr is value.value + value.unit
-	// => get a buffer on the unified string
-	// => get the length of the string
+	var strVal = normalizedValue.repr,
+		strLength = strVal.length,
+		strBuf = strVal.getNcharsAsCharCodesArray(this.stdStrLength, 0)[1],
+		valueBuf = GeneratorFor16bitsInt.IntFromNumber(normalizedValue.value);
 
-	// TokenType from the parser as a numeric constant
-//	console.log(value.value, this.TokenTypes[tokenType]);
+	// this.TokenTypes[tokenType] is the TokenType from the parser
+	// represented as a numeric constant
 	this._buffer.set(
 			[this.TokenTypes[tokenType]],
 			this.bufferSchema.tokenType.start
@@ -157,93 +119,114 @@ CSSPropertyBuffer.prototype.populate = function(tokenType, value) {
 		);
 	// value
 	this._buffer.set(
-			// FIXME: this should use the GeneratorFor16bitsInt
-			[valueTypeAsConst < 3 ? value.value : 0],
+			valueBuf,
 			this.bufferSchema.propertyValue.start
 		);
 	// representation
-//	console.error(tokenType, value.value, value.unit, value);
 	this._buffer.set(
-			valueTypeAsConst < 3
-				? (tokenType === 'PercentageToken'
-					? value.repr + '%'
-					: (String(value.value) + this.Units[value.unit].unit).getNcharsAsCharCodesArray(19, 0)[1])
-				: value.value.getNcharsAsCharCodesArray(19, 0)[1],
+			strBuf,
 			this.bufferSchema.repr.start
 		);
 	// representation string length
-//	console.log(tokenType, this.bufferSchema.reprLength.start, value.value, String(value.value).length);
 	var strLength;
 	this._buffer.set(
-		[valueTypeAsConst < 3
-				? (tokenType === 'PercentageToken'
-					? value.repr.length + 1
-					: (strLength = String(value.value).length) > 19 ? 19 : strLength + 2)
-				: (strLength = value.value.length) > 19 ? 19 : strLength],
+		[strLength],
 		this.bufferSchema.reprLength.start
 	);
-//	console.log((strLength = String(value.value).length) > 19 ? 19 : strLength + 2);
 	// unit
+//	if (!this.Units[value.unit])
+//		console.log(value.unit);
 	this._buffer.set(
 			[value.unit ? this.Units[value.unit].idx : 0],
 			this.bufferSchema.unit.start
 		);
-	
-//	console.log(this._buffer);
-//	console.log(tokenType, value.value);
 }
 
-// FIXME: this doesn't represent all the possible values returned by the parser
-CSSPropertyBuffer.prototype.getValueAsIfParsed = function(defaultValue) {
-	var sample;
-	
-	if (Object.getPrototypeOf(defaultValue) === String.prototype) {
-		if (defaultValue[defaultValue.length - 1] === '%') {
-			sample = DummyTokenFromParserFactory('PERCENTAGE');
-			sample.type = 'percentage';
-			sample.value = 0;
+CSSPropertyBuffer.prototype.parseAndSetValue = function(singleValueAsString) {
+	var parsedValue;
+	if ((parsedValue = this.parseValue(singleValueAsString)).length)
+		this.setValue(parsedValue);
+}
+
+CSSPropertyBuffer.prototype.parseValue = function(singleValueAsString) {
+	return parser.parseAListOfComponentValues(singleValueAsString);
+}
+
+CSSPropertyBuffer.prototype.fixValueFromParser = function(parsedValue) {
+	return (new (LocalTokenFromParserFactory(parsedValue))(
+		null,
+		parsedValue.value,
+		parsedValue.name,
+		parsedValue.type,
+		parsedValue.repr,
+		parsedValue.unit
+		)
+	);
+}
+
+CSSPropertyBuffer.prototype.concatenateBackFromParser = function(parsedValue) {
+	var tokenTypeFromParser;
+	var concatVal = ''; 
+	parsedValue.forEach(function(val) {
+		tokenTypeFromParser = Object.getPrototypeOf(val).tokenType;
+		switch (tokenTypeFromParser) {
+			case 'WHITESPACE' :
+					concatVal += ' ';
+					break;
+			case 'PERCENTAGE' :
+					concatVal += val.repr + '%';
+					break;
+			case 'HASH' :
+					concatVal += '#' + val.value;
+					break;
+			case 'COMMA' :
+					concatVal += ',';
+					break;
+			case 'FUNCTION' : 
+					concatVal += this.functionToCanonical(val).repr;
+			case 'OPENPAREN' :
+					concatVal += '(';
+					break;
+			case 'CLOSEPAREN' :
+					concatVal += ')';
+					break;
+			default : concatVal += typeof val.repr !== 'undefined' ? val.repr : val.value.toString();
 		}
-		else {
-			sample = DummyTokenFromParserFactory('IDENT');
-			sample.type = 'string';
-			sample.value = defaultValue;
-		}
-	}
-	else if (Object.getPrototypeOf(defaultValue) === Number.prototype) {
-		// FIXME: there's an ambiguity here between NUMBER and DIMENSION
-		// 		we need something like if (['px', 'pt', 'in', etc].indexOf(defaultValue.slice(-2)) != -1) then 'DIMENSION'
-		sample = DummyTokenFromParserFactory('NUMBER');
-		sample.type = 'integer'
-		sample.value = 0;
-		sample.repr = String(defaultValue);
-	}
-	
-	return [sample];
+	}, this);
+	return concatVal;
+}
+
+// getValueAsString() is an alias for bufferedValueToString()
+// TODO: unify
+CSSPropertyBuffer.prototype.getValueAsString = function() {
+	return this.bufferedValueToString();
+}
+
+// getValueAsNumber() is an alias for bufferedValueToNumber()
+// TODO: unify
+CSSPropertyBuffer.prototype.getValueAsNumber = function() {
+	return this.bufferedValueToNumber();
 }
 
 CSSPropertyBuffer.prototype.typedArrayToString = function(tArray, strLength) {
-//	console.log(strLength);
 	return tArray.bufferToString(strLength);
 }
 
+// bufferedValueToString() is an alias for getValueAsString()
+// TODO: unify
 CSSPropertyBuffer.prototype.bufferedValueToString = function() {
 	var start = this.bufferSchema['repr'].start, end = start + this.bufferSchema['repr'].length,
 		strLengthIdx = this.bufferSchema['reprLength'].start;
-		
-//	console.log(this._buffer);
-
 	return this.typedArrayToString(
 			this._buffer.slice(start, end).buffer,
 			this._buffer[strLengthIdx]
 		);
 }
 
+// bufferedValueToNumber() is an alias for getValueAsNumber()
+// TODO: unify
 CSSPropertyBuffer.prototype.bufferedValueToNumber = function() {
-//	console.log(propBuffer);
 	var start = this.bufferSchema['propertyValue'].start, end = start + this.bufferSchema['propertyValue'].length
-//	console.log(start, end);
-//	var buf = this._buffer.slice(start, end);
-//	console.log([buf[0], buf[1]]);
 	return this.byteTuppleTo16bits(this._buffer.slice(start, end));
 }
 
@@ -261,27 +244,54 @@ CSSPropertyBuffer.prototype.byteTuppleTo16bits = function(bytesInt8Array) {
 
 
 
-var DummyTokenFromParserFactory = function(tokenType) {
+var LocalTokenFromParserFactory = function(parsedValue, tokenTypeFromParser) {
 	
-	if (DummyTokenFromParserCache[tokenType])
-		return new DummyTokenFromParserCache[tokenType]();
+	if (tokenTypeFromParser && LocalTokenFromParserCache[tokenTypeFromParser])
+		return LocalTokenFromParserCache[tokenTypeFromParser];
 	else {
-		var DummyTokenFromParser = function() {
-			this.value = 0;
-			this.type = '';
-			this.repr = '';
-			this.unit = '';
-		}
-		DummyTokenFromParser.prototype = {
-			tokenType : tokenType
-		}
-		DummyTokenFromParserCache[tokenType] = DummyTokenFromParser;
+		tokenTypeFromParser = parsedValue ? Object.getPrototypeOf(parsedValue).tokenType : tokenTypeFromParser;
 		
-		return new DummyTokenFromParser()
+		var LocalTokenFromParser = function(tokenType, value, name, type, repr, unit) {
+			var localValue = 0, localType = 'string', localRepr = '';
+			if (tokenTypeFromParser === 'IDENT' || tokenTypeFromParser === 'NONPARSED') {
+				localRepr  = (repr || (value ? value.toString() : ''));
+				localType = 'string';
+			}
+			else if (typeof value !== 'undefined' && Object.getPrototypeOf(value) === Number.prototype) {
+				localRepr = (value || localValue).toString() + (unit || '');
+				localValue = value || localValue;
+				localType = 'number';
+			}
+			else if (tokenTypeFromParser === 'PERCENTAGE') {
+				localValue = value || localValue;
+				localRepr  = (repr || (value ? value.toString() : '0'))  + '%';
+				localType = 'percentage';
+			}
+			else if (type === 'unrestricted' || (tokenTypeFromParser === 'FUNCTION' && name === 'rgb')) {
+				localRepr  = value ? value.toString() : '0';
+				localType = 'hash';
+			}
+			else if (typeof type === 'undefined') {
+				localRepr  = value ? value.toString() : '';
+			}
+			
+			this.localTokenType = tokenType ? tokenType : tokenTypeFromParser.capitalizeFirstChar() + 'Token';
+			this.value = localValue;
+			this.type = localType;
+			this.repr = localRepr;
+			this.reprLength = this.repr.length;
+			this.unit = unit || '';
+		}
+		LocalTokenFromParser.prototype = {
+			tokenType : tokenTypeFromParser || 'NONE'
+		}
+		LocalTokenFromParserCache[LocalTokenFromParser] = LocalTokenFromParser;
+		
+		return LocalTokenFromParser
 	}
 }
 
-var DummyTokenFromParserCache = {
+var LocalTokenFromParserCache = {
 	
 }
 
@@ -298,39 +308,44 @@ var DummyTokenFromParserCache = {
 
 Object.defineProperty(CSSPropertyBuffer.prototype, 'TokenTypes', {
 	value : {
-			BadstringToken : 0,
-			BadurlToken : 1,
-			WhitespaceToken : 2,
-			CdoToken : 3,
-			CdcToken : 4,
-			ColonToken : 5,
-			SemicolonToken : 6,
-			CommaToken : 7,
-			OpencurlyToken : 8,
-			ClosecurlyToken : 9,
-			OpensquareToken : 10,
-			ClosesquareToken : 11,
-			OpenparenToken : 12,
-			CloseparenToken : 13,
-			IncludeMatchToken : 14,
-			DashMatchToken : 15,
-			PrefixMatchToken : 16,
-			SuffixMatchToken : 17,
-			SubstringMatchToken : 18,
-			ColumnToken : 19,
-			EOFToken : 20,
-			DelimToken : 21,
-			IdentToken : 22,
-			FunctionToken : 23,
-			AtkeywordToken : 24,
-			HashToken : 25,
-			StringToken : 26,
-			UrlToken : 27,
-			NumberToken : 28,
-			PercentageToken : 29,
-			DimensionToken : 30,
-			NonParsedToken : 31
+			UndefinedToken : 0, 
+			BadstringToken : 1,
+			BadurlToken : 2,
+			WhitespaceToken : 3,
+			CdoToken : 4,
+			CdcToken : 5,
+			ColonToken : 6,
+			SemicolonToken : 7,
+			CommaToken : 8,
+			OpencurlyToken : 9,
+			ClosecurlyToken : 10,
+			OpensquareToken : 11,
+			ClosesquareToken : 12,
+			OpenparenToken : 13,
+			CloseparenToken : 14,
+			IncludeMatchToken : 15,
+			DashmatchToken : 16,
+			PrefixmatchToken : 17,
+			SuffixmatchToken : 18,
+			SubstringmatchToken : 19,
+			ColumnToken : 20,
+			EOFToken : 21,
+			DelimToken : 22,
+			IdentToken : 23,
+			FunctionToken : 24,
+			AtkeywordToken : 25,
+			HashToken : 26,
+			StringToken : 27,
+			UrlToken : 28,
+			NumberToken : 29,
+			PercentageToken : 30,
+			DimensionToken : 31,
+			NonparsedToken : 32
 			}
+});
+
+Object.defineProperty(CSSPropertyBuffer.prototype, 'stdStrLength', {
+	value : 58
 });
 
 Object.defineProperty(CSSPropertyBuffer.prototype, 'ValueTypes', {
@@ -339,7 +354,9 @@ Object.defineProperty(CSSPropertyBuffer.prototype, 'ValueTypes', {
 		percentage : 1,
 		float : 2,
 		string : 3,
-		numericalArray : 4
+		hash : 4,
+		numericalArray : 5,
+		'' : 6
 	}
 });
 
@@ -392,6 +409,18 @@ Object.defineProperty(CSSPropertyBuffer.prototype, 'Units', {
 			unit : 'px',
 			fullName : 'pixels',
 			equivStr : '1px : 1/96th of 1in '
+		},
+		em : {
+			idx : 8,
+			unit : 'size of the uppercase M',
+			fullName : 'root em',
+			equivStr : '1em is equivalent to the inherited font-size'
+		},
+		rem : {
+			idx : 9,
+			unit : 'rem',
+			fullName : 'root em',
+			equivStr : '1rem is equivalent to the root element\'s font-size'
 		}
 	}
 });
@@ -405,25 +434,27 @@ Object.defineProperty(CSSPropertyBuffer.prototype, 'Units', {
 //	unit: "px"
 //}
 
-CSSPropertyBuffer.prototype.bufferSchema = BinarySchemaFactory(
-	'compactedViewOnProperty',
-	[
-		'tokenType',
-		'propertyValue',
-		'propertyType',
-		'repr',
-		'reprLength',
-		'unit'
-	],
-	[
-		1,
-		2,
-		1,
-		19,		// defining a tight limit to the size of the representation of a string is obviously a strong opinion: lets keep some neurons on it)
-		1,
-		1
-	]
-);
+Object.defineProperty(CSSPropertyBuffer.prototype, 'bufferSchema', {
+	value : BinarySchemaFactory(
+		'compactedViewOnProperty',
+		[
+			'tokenType',
+			'propertyValue',
+			'propertyType',
+			'repr',
+			'reprLength',
+			'unit'
+		],
+		[
+			1,
+			2,
+			1,
+			CSSPropertyBuffer.prototype.stdStrLength,		// defining a tight limit to the size of the representation of a string is obviously a strong opinion: lets keep some neurons on it)
+			1,
+			1
+		]
+)
+});
 
 	
 

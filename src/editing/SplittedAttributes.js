@@ -2,510 +2,585 @@
  * Constructor AttributesList
  * 
  */
- 
+
 //var StylePropertyEnhancer = require('src/editing/StylePropertyEnhancer');
 //var enhancer = new StylePropertyEnhancer();
 
 var MemoryMapBuffer = require('src/core/MemoryMapBuffer');
 var CSSPropertyBuffer = require('src/editing/CSSPropertyBuffer');
 var BinarySlice = require('src/core/BinarySlice');
+var CSSPropertyDescriptors = require('src/editing/CSSPropertyDescriptors');
+var CSSPropertySetBuffer = require('src/editing/CSSPropertySetBuffer');
+var parser = require('src/parsers/css-parser_forked');
 
-// require CSS-parser...
-//var parser = require('src/parsers/css-parser_forked');
 
-	/**
-	 * Constructor AttributesList
-	 * This abstract type shall be used as a base for the "splitted" styles:
-	 * "Inheritable" and "local" attributes are grouped in 4 different objects
-	 * in the "style" type. This allows important optimizations when embracing
-	 * the concept of "component" as being decoupled from the DOM.
-	 * 	=> see AdvancedAttributesListFactory()
-	 * 
-	 * @param attributes Object : passive partial AttributesList-Like (no methods, only significative keys defined)
-	 */
-	var AttributesList = function(attributes) {
-		if (typeof attributes === 'undefined')
-			return this;
-		// backward compatibility with the attributes list we defined in PHP,
-		// and ported as the basic implementation of AttributesList (StyleAttributes.js)
-		
-		// TODO: WHY Array.isArray ? AttributesList should always be "object"...
-		// Find out how we, once upon a time, got an array...
-		// 		=> fixed in AdvancedAttributesList
-		if (typeof attributes === 'string' && arguments[1] && Array.isArray(arguments[1]))
-			attributes = arguments[1];
-		
-		// TODO: explicitly type each CSS data-structure so they precisely reproduce
-		// the CSS props we're currently supporting 
-		if (typeof attributes === 'object' && Object.keys(attributes).length) {
-			for(var prop in attributes) {
-				if (attributes.hasOwnProperty(prop) && prop !== 'selector' && prop !== 'type')
-					this[prop] = attributes[prop];
-			};
-		}
+/**
+ * Constructor AttributesList
+ * This abstract type shall be used as a base for the "splitted" styles:
+ * "Inheritable" and "local" attributes are grouped in 4 different objects
+ * in the "style" type. This allows important optimizations when embracing
+ * the concept of "component" as being decoupled from the DOM.
+ * 	=> see AdvancedAttributesListFactory()
+ * 
+ * @param attributes Object : passive partial AttributesList-Like (no methods, only significative keys defined)
+ */
+var AttributesList = function(attributes) {
+	if (typeof attributes === 'undefined')
+		return this;
+	// backward compatibility with the attributes list we defined in PHP,
+	// and ported as the basic implementation of AttributesList (StyleAttributes.js)
+
+	// TODO: WHY Array.isArray ? AttributesList should always be "object"...
+	// Find out how we, once upon a time, got an array...
+	// 		=> fixed in AdvancedAttributesList
+	if (typeof attributes === 'string' && arguments[1] && Array.isArray(arguments[1]))
+		attributes = arguments[1];
+
+	// TODO: explicitly type each CSS data-structure so they precisely reproduce
+	// the CSS props we're currently supporting 
+	if (typeof attributes === 'object' && Object.keys(attributes).length) {
+		for (var prop in attributes) {
+			if (attributes.hasOwnProperty(prop) && prop !== 'selector' && prop !== 'type')
+				this[prop] = attributes[prop];
+		};
 	}
-	AttributesList.prototype = {};
+}
+AttributesList.prototype = {};
 
-	Object.defineProperty(AttributesList.prototype, 'linearize', {
-											value : function() {
-												var str = '', current = '', attrCount = Object.keys(this).length, c = 0;
-												for(var prop in this) {
-													c++;
-													// may be a typed property
-													if (typeof this[prop] === 'string')
-														current = this[prop];
-													
-													str += prop.dromedarToHyphens() + ' : ' + current + ';';
-													
-													if (c !== attrCount)
-														str += '\n';
-												};
-												return str;
-											}
-										}
-	);
-	
-	Object.defineProperty(AttributesList.prototype, 'get', {
-																	value : function(attributeName) {
-																		
-																	}
-																}
-	);
-	
-	Object.defineProperty(AttributesList.prototype, 'getAttributeAsCSSOM', {
-																	value : function(attributeName) {
-																		
-																	}
-																}
-	);
-	
-	Object.defineProperty(AttributesList.prototype, 'getAttributeAsKeyValue', {
-																	value : function(attributeName) {
-																		
-																	}
-																}
-	);
-	
-	Object.defineProperty(AttributesList.prototype, 'set', {
-																	value : function(attributeName, attributeValue) {
-																		
-																	}
-																}
-	);
-	
-	Object.defineProperty(AttributesList.prototype, 'setAttributeFromCSSOM', {
-																	value : function(attributeName, attributeValue) {
-																		
-																	}
-																}
-	);
-	
-	Object.defineProperty(AttributesList.prototype, 'setAttributeFromKeyValue', {
-																	value : function(attributeName, attributeValue) {
-																		
-																	}
-																}
-	);
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-//	/**
-//	 * Construct. InheritedAttributesList
-//	 * 
-//	 * @param attributes Object : passive partial AttributesList-Like (no methods, only significative keys defined)
-//	 */
-//	var InheritedAttributesList = function(attributes) {
-//		
-//	}
-//	InheritedAttributesList.prototype = Object.create(AttributesList.prototype);
-//	
-//	
-//	/**
-//	 * Construct. LocallyEffectiveAttributesList
-//	 * 
-//	 * @param attributes Object : passive partial AttributesList-Like (no methods, only significative keys defined)
-//	 */
-//	var LocallyEffectiveAttributesList = function(attributes) {
-//		
-//	}
-//	LocallyEffectiveAttributesList.prototype = Object.create(AttributesList.prototype);
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	var AdvancedAttributesListFactory = function(attributes) {
-		// backward compatibility with the attributes list we defined in PHP,
-		// and ported as the basic implementation of AttributesList (StyleAttributes.js)
-		// TODO: evaluate the oppportunity to break this API: how far are we from PHP ? We may obtain CSS defintions from the server, but shouldn't we treat them as "external data" ?
-		
-		if ((typeof attributes === 'string' || !attributes) && Object.prototype.toString.call(arguments[1]) === '[object Object]')
-			attributes = arguments[1];
-		
-		this.stdAttributesList = new AttributesList(attributes);
-//		console.log(this.stdAttributesList);
-		this.inheritedAttributesList = new AttributesList(this.splitAttributes('inherited', attributes));
-		this.locallyEffectiveAttributesList = new AttributesList(this.splitAttributes('locallyEffective', attributes));
-		this.boxModelAttributesList = new AttributesList(this.splitAttributes('boxModelPart', attributes));
-		this.strictlyLocalAttributesList = new AttributesList(this.splitAttributes('strictlyLocal', attributes));
-		
-//		console.log(this.stdAttributesList);
+Object.defineProperty(AttributesList.prototype, 'linearize', {
+	value: function() {
+		var str = '', current = '', attrCount = Object.keys(this).length, c = 0;
+		for (var prop in this) {
+			c++;
+			// may be a typed property
+			if (typeof this[prop] === 'string')
+				current = this[prop];
+
+			str += prop.dromedarToHyphens() + ' : ' + current + ';';
+
+			if (c !== attrCount)
+				str += '\n';
+		};
+		return str;
 	}
-	AdvancedAttributesListFactory.prototype = {}
-	
-	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'get', {
-		value : function(attr) {
-			return this.stdAttributesList.get(attr);
-		}
-	});
-	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'set', {
-		value : function(attr, value) {
-			this.stdAttributesList.set(attr, value);
-		}
-	});
-	// FIXME: should update all partial lists down the object
-	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'setApply', {
-		value : function(attrList) {
-			Object.entries(attrList).forEach(function(pair) {
-				this.stdAttributesList.set(pair[0], pair[1]);
-			}, this);
-		}
-	});
-	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'getAllAttributes', {
-		value : function() {
-			return this.stdAttributesList;
-		}
-	});
-	
-	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'splitAttributes', {
-		value : function(purpose, attributes) {
-			var res = {};
-			
-			if (!purpose)
-				return attributes;
-			else if (purpose === 'inherited') {
-				for (var attr in attributes) {
-					if (this.inheritedAttributes.indexOf(attr) !== -1) {
-						res[attr] = attributes[attr];
-					}
-				}
-			}
-			else if (purpose === 'locallyEffective') {
-				for (var attr in attributes) {
-					if (this.locallyEffectiveAttributes.indexOf(attr) !== -1) {
-						res[attr] = attributes[attr];
-					}
-				}
-			}
-			else if (purpose === 'boxModelPart') {
-				for (var attr in attributes) {
-					if (this.boxModelAttributes.indexOf(attr) !== -1) {
-						res[attr] = attributes[attr];
-					}
-				}
-			}
-			else if (purpose === 'strictlyLocal') {
-				for (var attr in attributes) {
-					if (this.strictlyLocalAttributes.indexOf(attr) !== -1) {
-						res[attr] = attributes[attr];
-					}
-				}
-			}
-			
-//			console.log(packedRes);
-			
-			return res;
-		} 
-	});
-	
-	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'disambiguateInherited', {
-		value : function(attribute) {
-			// yep... let's see if this could a much better approach...
-			// (for now, we explicitely branch in the above function,
-			// depending on an explicit and hard coded flag...)
-		}
-	});
-	
-	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'linearize', {
-		value : function() {
-//			console.log(this.stdAttributesList.linearize());
-			return this.stdAttributesList.linearize();
-		}
-	});
-	
-	Object.defineProperty(AdvancedAttributesListFactory, 'fromAST', {
-		value : function(ast) {
-			var name, value, attrList = {};
-//				packedCSSProperty = new PackedAttributeFactory();
-			// ast is an array of declarations
-			ast.forEach(function(declaration) {
-				// NOT YET CSSOM...
-				
-				// We have to figure out the way we want to make use of it...
-				
-				// => We have for now a draft for a packed CSS property desciptor
-				// 	=> This seems the appropriate time to design this packed CSS property buffer,
-				//		and its associated reader object.
-				// 		=> with accessors
-				//		=> dictionary indexed emums (eg. tokenType, etc.)
-				//		=> a few helper function, like isDimension, isCanonical, etc. 
-				//		=> etc.
-				
-//				console.log(declaration.value);
-//				console.log(declaration.value.reduce(AdvancedAttributesListFactory.flattenDeclarationValues, ''));
+});
+
+Object.defineProperty(AttributesList.prototype, 'get', {
+	value: function(attributeName) {
+
+	}
+});
+
+Object.defineProperty(AttributesList.prototype, 'getAttributeAsCSSOM', {
+	value: function(attributeName) {
+
+	}
+});
+
+Object.defineProperty(AttributesList.prototype, 'getAttributeAsKeyValue', {
+	value: function(attributeName) {
+
+	}
+});
+
+Object.defineProperty(AttributesList.prototype, 'set', {
+	value: function(attributeName, attributeValue) {
+
+	}
+});
+
+Object.defineProperty(AttributesList.prototype, 'setAttributeFromCSSOM', {
+	value: function(attributeName, attributeValue) {
+
+	}
+});
+
+Object.defineProperty(AttributesList.prototype, 'setAttributeFromKeyValue', {
+	value: function(attributeName, attributeValue) {
+
+	}
+});
 
 
-				if (declaration.value && typeof declaration.value !== 'number') {	// Array.isArray(declaration.value)
-					name = declaration.name.hyphensToDromedar();
-					
-					attrList[name] = declaration.value.reduce(AdvancedAttributesListFactory.flattenDeclarationValues, '');
-//					this.packedCSSProperties[name] = AdvancedAttributesListFactory.populateCSSPropertyBuffer(
-//						name,
-//						declaration.value.filter(function(val) {
-//							return token === 'DIMENSION';
-//						})[0]
-//					);
-				}
-			});
-			
-			return new AdvancedAttributesListFactory(attrList);
-		}
-	});
-	
-//	Object.defineProperty(AdvancedAttributesListFactory, 'populateCSSPropertyBuffer', {
-//		value : function(parsedPropName, parsedPropValue) {
-//			var CSSPropertyBuffer = new CSSPropertyBuffer(
-//				CSSPropertyBuffer.prototype.bufferSchema
-//			);
-//			// 16 bits values have to be declared as byte-tuples ([1, 0] would then represent 1, as all CPU's are now little-endian) 
-//			// (GeneratorFor16bitsInt, responsible for the UID, shall return an array)
-//			// Offset of the extracted string from the original string
-//			CSSPropertyBuffer.set(
-//					[TokenTypes[parsedProp.token]],
-//					CSSPropertyBuffer.prototype.bufferSchema.tokenType.start
-//				);
-//			// Length of the extracted string from the original string
-//			CSSPropertyBuffer.set(
-//					[parsedProp.value],
-//					CSSPropertyBuffer.prototype.bufferSchema.value.start
-//				);
-//			// Extract the most specific selector (specificity priority is: !important -> "style" DOM attr as a rule -> ID -> class/attribute/prop/pseudo-class -> nodeType/pseudo-elem)
-//			CSSPropertyBuffer.set(
-//					[0],		// parsedProp.type = "integer"
-//					CSSPropertyBuffer.prototype.bufferSchema.propertyType.start
-//				);
-//			CSSPropertyBuffer.set(
-//					[parsedProp.repr.getNcharsAsCharArray(2, 0)],
-//					CSSPropertyBuffer.prototype.bufferSchema.repr.start
-//				);
-//			CSSPropertyBuffer.set(
-//					[Units[parsedProp.unit].idx],
-//					CSSPropertyBuffer.prototype.bufferSchema.unit.start
-//				);
-//				
-//				
+
+
+
+// This is OBSOLETE.
+// (re-defined (in another format, and without the "per-purpose" classification)
+// in CSSPropertyDescriptors)
+//var PerPurposeAttributesList = {
+//	inheritedAttributes: [
+//		'writingMode',					// horizontal-tb / vertical-lr / vertical-rl / sideways-rl / sideways-lr
+//		'captionSide',					// top / bottom (title or legend of a table)
+//		'listStyleType', 				// disc / circle / square / decimal / georgian, and anything you want... UNICODE codepoint ?
+//		'listStylePosition',			// inside / outside (position of the ::marker : first inline box or before first inline box)
+//		'visibility',					// visible / hidden
+//		'fontFamily',					// list of IDENT values
+//		'fontSize',						// DIMENSION
+//		'lineHeight',					// DIMENSION
+//		'color',						// HASH or FUNCTION
+//		'textOrientation',				// mixed / upright / sideways / sideways-right / sideways-left / use-glyph-orientation
+//		'textAlign',					// left / right / center / justify (start / end)
+//		'textTransform',				// capitalize / uppercase / lowercase / none / full-width / full-size-kana (full-width aligns vertical and horizontal letters on a grid of text)
+//		'textDecoration',				// underline / + dotted / + red / + wavy / + overline
+//		'cursor',						// help / wait / crosshair / not-allowed / zoom-in / grab
+//		'borderCollapse',				// collapse / separate
+//		'whiteSpace',					// normal / nowrap / pre / pre-wrap / pre-line / break-spaces
+//		'wordBreak'						// normal / break-all / keep-all / break-word
 //
-//			return CSSPropertyBuffer;
-//		}
-//	})
+//	],
+//	locallyEffectiveAttributes: [
+//		'display',						// grid / flex / inline / inline-block / block / table / table-cell
+//		'overflowX',					// hidden / visible / scroll
+//		'overflowY',					// hidden / visible / scroll
+//		'verticalAlign',				// baseline / top / middle / bottom / sub / text-top
+//		'clear',						// left / right / both
+//		'float',						// left / right (inline-start / inline-end)
+//		'position',						// static / relative / absolute / fixed / sticky / top / bottom / right / left
+//
+//		'flex',							// SHORTHAND
+//		'flexFlow',						// SHORTHAND
+//		'flexDirection',				// row / column
+//		'flexWrap',						// nowrap / wrap
+//		'flexSchrink',					// INTEGER
+//		'flexGrow',						// INTEGER
+//		'flexBasis',					// INTEGER
+//
+//		'justifyContent',				// flex-start | flex-end | center | space-evenly | space-between | space-around 
+//		'alignItems',					// flex-start | flex-end | center | baseline | stretch
+//		'alignSelf',					// auto | flex-start | flex-end | center | baseline | stretch
+//		'alignContent'					// flex-start | flex-end | center | space-between | space-around | stretch  	
+//	],
+//	boxModelAttributes: [
+//		'boxSizing',					// border-box / content-box
+//		'width',						// DIMENSION
+//		'height',						// DIMENSION
+//		'top',							// DIMENSION
+//		'left',							// DIMENSION
+//		'right',						// DIMENSION
+//		'bottom',						// DIMENSION
+//
+//		'padding',						// SHORTHAND
+//		'margin',						// SHORTHAND
+//		'border',						// SHORTHAND
+//
+//		'paddingBlockStart',			// DIMENSION
+//		'paddingInlineEnd',				// DIMENSION
+//		'paddingBlockEnd',				// DIMENSION
+//		'paddingInlineStart',			// DIMENSION
+//
+//		'marginBlockStart',				// DIMENSION
+//		'marginBlockEnd',				// DIMENSION
+//		'marginInlineStart',			// DIMENSION
+//		'marginInlineEnd',				// DIMENSION
+//
+//		'borderBlockStart',				// width, style, color
+//		'borderBlockEnd',				// width, style, color
+//		'borderInlineStart',			// width, style, color
+//		'borderInlineEnd',				// width, style, color
+//
+//		'borderWidth',					// DIMENSION
+//		'borderBlockStartWidth',		// DIMENSION
+//		'borderBlockEndWidth',			// DIMENSION
+//		'borderInlineStartWidth',		// DIMENSION
+//		'borderInlineEndWidth',			// DIMENSION
+//
+//		'borderStyle',					// none / dotted / inset / dashed / solid / double / groove
+//		'borderBlockStartStyle',		// none / dotted / inset / dashed / solid / double / groove
+//		'borderBlockEndStyle',			// none / dotted / inset / dashed / solid / double / groove
+//		'borderInlineStartStyle',		// none / dotted / inset / dashed / solid / double / groove
+//		'borderInlineEndStyle',			// none / dotted / inset / dashed / solid / double / groove
+//
+//		'borderColor',					// COLOR
+//		'borderBlockStartColor',		// COLOR
+//		'borderBlockEndColor',			// COLOR
+//		'borderInlineStartColor',		// COLOR
+//		'borderInlineEndColor',			// COLOR
+//		
+//		'borderRadius',					// DIMENSION[1-4] / DIMENSION[1-4]
+//
+//		'borderTopLeftRadius',			// DIMENSION / DIMENSION
+//		'borderTopRightRadius',			// DIMENSION / DIMENSION
+//		'borderBottomRightRadius',		// DIMENSION / DIMENSION
+//		'borderBottomLeftRadius',		// DIMENSION / DIMENSION
+//
+//		'borderStartStartRadius',		// DIMENSION / DIMENSION
+//		'borderStartEndRadius',			// DIMENSION / DIMENSION
+//		'borderEndStartRadius',			// DIMENSION / DIMENSION
+//		'borderEndEndRadius'			// DIMENSION / DIMENSION
+//	],
+//	strictlyLocalAttributes: [
+//		'background',					// SHORTHAND
+//		'backgroundColor',				//
+//		'backgroundPosition',			// SHORTHAND
+//		'backgroundPositionTop',		//
+//		'backgroundPositionLeft',		//
+//		'backgroundImage',				//
+//		'backgroundRepeat'				//
+//
+//
+//	]
+//};
+
+
+
+
+
+var CSSPropertySetBufferFactory = function(attributes) {
 	
-	// A callback for the Reducer we use as a hacky serializer for the objects we get from the CSS ast
-	Object.defineProperty(AdvancedAttributesListFactory, 'flattenDeclarationValues', {
-		value : function(acc, item, key) {
-//			console.log(acc, key);
-			acc += item.tokenType !== 'WHITESPACE'
-				? (item.tokenType === ','
-					? ','
-					: (item.tokenType === 'DIMENSION' || item.tokenType === 'NUMBER'
-						? item.repr + (item.unit || '')
-						: (item.tokenType === 'PERCENTAGE'
-							? item.repr + '%'
-							: (item.type === 'FUNCTION'		// NOT a DECLARATION (item.type): it's a high-level type
-								? item.name + '(' + item.value.reduce(AdvancedAttributesListFactory.flattenDeclarationValues, '') + ')'
-								: item.value)
-						)
+}
+CSSPropertySetBufferFactory.prototype = {};
+CSSPropertySetBufferFactory.prototype.objectType = 'CSSPropertySetBufferFactory';
+
+
+
+
+/**
+ * Construct. BaseClass SplittedAttributesListBaseClass
+ * 
+ * @param attributes Object : partial AttributesList-Like (only significative keys defined)
+ */
+var SplittedAttributesListBaseClass = function(attributes) {
+	Object.defineProperty(this, 'CSSPropertySetBuffer', {value: new CSSPropertySetBuffer()});
+	this.disambiguateAttributesAndAssignInitialValues(attributes);
+}
+SplittedAttributesListBaseClass.prototype = {};	//Object.create(AttributesList.prototype);
+Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'objectType', {value: 'SplittedAttributesListBaseClass'});
+Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'purpose', {value: 'VirtualAttributes' });	// virtual
+Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'VirtualAttributes', {value: [] });		// virtual
+Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'InheritedAttributes', {value: Object.keys(CSSPropertyDescriptors.splitted.inheritedAttributes)});
+Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'LocallyEffectiveAttributes', {value: Object.keys(CSSPropertyDescriptors.splitted.locallyEffectiveAttributes)});
+Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'BoxModelAttributes', {value: Object.keys(CSSPropertyDescriptors.splitted.boxModelAttributes)});
+Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'StrictlyLocalAttributes', {value: Object.keys(CSSPropertyDescriptors.splitted.strictlyLocalAttributes)});
+
+Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'disambiguateAttributesAndAssignInitialValues', {
+	value: function(attributes) {
+		var packedCSSProperty;
+		this[this.purpose].forEach(function(attrName) {
+			packedCSSProperty = new CSSPropertyBuffer(null, attrName);
+			if (attributes[attrName]) {
+				packedCSSProperty.setValue(
+					parser.parseAListOfComponentValues(attributes[attrName])
+				);
+			}
+			else {
+				packedCSSProperty.setValue(
+					parser.parseAListOfComponentValues(
+						CSSPropertyDescriptors.all[attrName].prototype.initialValue
+					)
+				);
+			}
+			this.CSSPropertySetBuffer.setPropFromBuffer(attrName, packedCSSProperty);
+		}, this);
+	}
+});
+
+
+
+
+
+
+
+
+
+
+
+
+/**
+ * @constructor InheritedAttributesList
+ * @extends SplittedAttributesListBaseClass
+ * @param attributes Object : partial AttributesList-Like (only significative keys defined)
+ */
+var InheritedAttributesList = function(attributes) {
+	SplittedAttributesListBaseClass.call(this, attributes);
+}
+InheritedAttributesList.prototype = Object.create(SplittedAttributesListBaseClass.prototype);
+Object.defineProperty(InheritedAttributesList.prototype, 'objectType', { value: 'InheritedAttributesList' });
+Object.defineProperty(InheritedAttributesList.prototype, 'purpose', { value: 'InheritedAttributes' });
+
+
+/**
+ * @constructor LocallyEffectiveAttributesList
+ * @extends SplittedAttributesListBaseClass
+ * @param attributes Object : partial AttributesList-Like
+ */
+var LocallyEffectiveAttributesList = function(attributes) {
+	SplittedAttributesListBaseClass.call(this, attributes);
+}
+LocallyEffectiveAttributesList.prototype = Object.create(SplittedAttributesListBaseClass.prototype);
+Object.defineProperty(LocallyEffectiveAttributesList.prototype, 'objectType', { value: 'LocallyEffectiveAttributesList' });
+Object.defineProperty(LocallyEffectiveAttributesList.prototype, 'purpose', { value: 'LocallyEffectiveAttributes' });
+
+
+/**
+ * @constructor boxModelAttributes
+ * @extends SplittedAttributesListBaseClass
+ * @param attributes Object : partial AttributesList-Like 
+ */
+var BoxModelAttributesList = function(attributes) {
+	SplittedAttributesListBaseClass.call(this, attributes);
+}
+BoxModelAttributesList.prototype = Object.create(SplittedAttributesListBaseClass.prototype);
+Object.defineProperty(BoxModelAttributesList.prototype, 'objectType', { value: 'BoxModelAttributesList' });
+Object.defineProperty(BoxModelAttributesList.prototype, 'purpose', { value: 'BoxModelAttributes' });
+
+
+/**
+ * @constructor StrictlyLocalAttributes
+ * @extends SplittedAttributesListBaseClass
+ * @param attributes Object : partial AttributesList-Like
+ */
+var StrictlyLocalAttributesList = function(attributes) {
+	SplittedAttributesListBaseClass.call(this, attributes);
+}
+StrictlyLocalAttributesList.prototype = Object.create(SplittedAttributesListBaseClass.prototype);
+Object.defineProperty(StrictlyLocalAttributesList.prototype, 'objectType', { value: 'StrictlyLocalAttributesList' });
+Object.defineProperty(StrictlyLocalAttributesList.prototype, 'purpose', { value: 'StrictlyLocalAttributes' });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var AdvancedAttributesListFactory = function(attributes) {
+	if ((typeof attributes === 'string' || !attributes) && Object.prototype.toString.call(arguments[1]) === '[object Object]')
+		attributes = arguments[1];
+
+	this.inheritedAttributes = new InheritedAttributesList(attributes);
+	this.locallyEffectiveAttributes = new LocallyEffectiveAttributesList(attributes);
+	this.boxModelAttributes = new BoxModelAttributesList(attributes);
+	this.strictlyLocalAttributes = new StrictlyLocalAttributesList(attributes);
+
+	this.stdAttributes = new AttributesList(attributes);
+}
+AdvancedAttributesListFactory.prototype = {}
+
+Object.defineProperty(AdvancedAttributesListFactory.prototype, 'get', {
+	value: function(attr) {
+		return this.stdAttributes.get(attr);
+	}
+});
+Object.defineProperty(AdvancedAttributesListFactory.prototype, 'set', {
+	value: function(attr, value) {
+		this.stdAttributes.set(attr, value);
+	}
+});
+// FIXME: should update all partial lists down the object
+Object.defineProperty(AdvancedAttributesListFactory.prototype, 'setApply', {
+	value: function(attrList) {
+		Object.entries(attrList).forEach(function(pair) {
+			this.stdAttributes.set(pair[0], pair[1]);
+		}, this);
+	}
+});
+Object.defineProperty(AdvancedAttributesListFactory.prototype, 'getAllAttributes', {
+	value: function() {
+		return this.stdAttributes;
+	}
+});
+
+Object.defineProperty(AdvancedAttributesListFactory.prototype, 'linearize', {
+	value: function() {
+		return this.stdAttributes.linearize();
+	}
+});
+
+Object.defineProperty(AdvancedAttributesListFactory, 'fromAST', {
+	value: function(ast) {
+		var name, attrList = {};
+		// ast is an array of declarations
+		ast.forEach(function(declaration) {
+			// NOT YET CSSOM...
+
+			if (declaration.value && typeof declaration.value !== 'number') {	// Array.isArray(declaration.value)
+				name = declaration.name.hyphensToDromedar();
+				attrList[name] = declaration.value.reduce(AdvancedAttributesListFactory.flattenDeclarationValues, '');
+			}
+		});
+		return new AdvancedAttributesListFactory(attrList);
+	}
+});
+
+// A callback for the Reducer we use as a hacky serializer for the objects we get from the CSS ast
+Object.defineProperty(AdvancedAttributesListFactory, 'flattenDeclarationValues', {
+	value: function(acc, item, key) {
+		//			console.log(acc, key);
+		acc += item.tokenType !== 'WHITESPACE'
+			? (item.tokenType === 'COMMA'
+				? ','
+				: (item.tokenType === 'DIMENSION' || item.tokenType === 'NUMBER'
+					? item.repr + (item.unit || '')
+					: (item.tokenType === 'PERCENTAGE'
+						? item.repr + '%'
+						: (item.type === 'FUNCTION'		// NOT a DECLARATION (item.type): it's a high-level type
+							? item.name + '(' + item.value.reduce(AdvancedAttributesListFactory.flattenDeclarationValues, '') + ')'
+							: item.value)
 					)
 				)
-				: (acc.length ? ' ' : '');		// no leading space in resulting string CSS values
-			return acc;
-		}
-	});
-	
-	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'CSSPropertyBufferSize', {
-		value : CSSPropertyBuffer.prototype.bufferSchema.size
-	});
-	
-	
-	
-	
-	
-	
-	
-	
+			)
+			: (acc.length ? ' ' : '');		// no leading space in resulting string CSS values
+		//			console.log(acc);
+		return acc;
+	}
+});
 
-	
-	// This is re-defined (in another format) in CSSPropertyDescriptors
-	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'inheritedAttributes', {
-		value : [
-			'writingMode',					// horizontal-tb / vertical-lr / vertical-rl / sideways-rl / sideways-lr
-			'captionSide',					// top / bottom (title or legend of a table)
-			'listStyleType', 				// disc / circle / square / decimal / georgian, and anything you want... UNICODE codepoint ?
-			'listStylePosition',			// inside / outside (position of the ::marker : first inline box or before first inline box)
-			'visibility',					// visible / hidden
-			'fontFamily',					// list of IDENT values
-			'fontSize',						// DIMENSION
-			'lineHeight',					// DIMENSION
-			'color',						// HASH or FUNCTION
-			'textOrientation',				// mixed / upright / sideways / sideways-right / sideways-left / use-glyph-orientation
-			'textAlign',					// left / right / center / justify (start / end)
-			'textTransform',				// capitalize / uppercase / lowercase / none / full-width / full-size-kana (full-width aligns vertical and horizontal letters on a grid of text)
-			'textDecoration',				// underline / + dotted / + red / + wavy / + overline
-			'cursor',						// help / wait / crosshair / not-allowed / zoom-in / grab
-			'borderCollapse',				// collapse / separate
-			'whiteSpace',					// normal / nowrap / pre / pre-wrap / pre-line / break-spaces
-			'wordBreak'						// normal / break-all / keep-all / break-word
-			
-		]
-	});
-	
-	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'locallyEffectiveAttributes', {
-		value : [
-			'display',						// grid / flex / inline / inline-block / block / table / table-cell
-			'overflowX',					// hidden / visible / scroll
-			'overflowY',					// hidden / visible / scroll
-			'verticalAlign',				// baseline / top / middle / bottom / sub / text-top
-			'clear',						// left / right / both
-			'float',						// left / right (inline-start / inline-end)
-			'position',						// static / relative / absolute / fixed / sticky / top / bottom / right / left
-			
-			'flex',							// SHORTHAND
-			'flexFlow',						// SHORTHAND
-			'flexDirection',				// row / column
-			'flexWrap',						// nowrap / wrap
-			'flexSchrink',					// INTEGER
-			'flexGrow',						// INTEGER
-			'flexBase',						// INTEGER
-			
-			'justifyContent',				// flex-start | flex-end | center | space-evenly | space-between | space-around 
-			'alignItems',					// flex-start | flex-end | center | baseline | stretch
-			'alignSelf',					// auto | flex-start | flex-end | center | baseline | stretch
-			'alignContent'					// flex-start | flex-end | center | space-between | space-around | stretch  	
-		]
-	});
-	
-	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'boxModelAttributes', {
-		value : [
-			'boxSizing',					// border-box / content-box
-			'width',						// DIMENSION
-			'height',						// DIMENSION
-			'top',							// DIMENSION
-			'left',							// DIMENSION
-			'right',						// DIMENSION
-			'bottom',						// DIMENSION
-			
-			'padding',						// SHORTHAND
-			'margin',						// SHORTHAND
-			'border',						// SHORTHAND
-			
-			'paddingTop',					// DIMENSION
-			'paddingBottom',				// DIMENSION
-			'paddingLeft',					// DIMENSION
-			'paddingRight',					// DIMENSION
-			
-			'paddingBlockStart',			// DIMENSION
-			'paddingInlineEnd',				// DIMENSION
-			'paddingBlockEnd',				// DIMENSION
-			'paddingInlineStart',			// DIMENSION
-					
-			'marginTop',					// DIMENSION
-			'marginBottom',					// DIMENSION
-			'marginLeft',					// DIMENSION
-			'marginRight',					// DIMENSION
-			
-			'marginBlockStart',				// DIMENSION
-			'marginBlockEnd',				// DIMENSION
-			'marginInlineStart',			// DIMENSION
-			'marginInlineEnd',				// DIMENSION
-			
-			'borderBlockStart',				// width, style, color
-			'borderBlockEnd',				// width, style, color
-			'borderInlineStart',			// width, style, color
-			'borderInlineEnd',				// width, style, color
-			
-			'borderWidth',					// DIMENSION
-			'borderBlockStartWidth',		// DIMENSION
-			'borderBlockEndWidth',			// DIMENSION
-			'borderInlineStartWidth',		// DIMENSION
-			'borderInlineEndWidth',			// DIMENSION
-			
-			'borderStyle',					// none / dotted / inset / dashed / solid / double / groove
-			'borderBlockStartStyle',		// none / dotted / inset / dashed / solid / double / groove
-			'borderBlockEndStyle',			// none / dotted / inset / dashed / solid / double / groove
-			'borderInlineStartStyle',		// none / dotted / inset / dashed / solid / double / groove
-			'borderInlineEndStyle',			// none / dotted / inset / dashed / solid / double / groove
-			
-			'borderColor',					// COLOR
-			'borderBlockStartColor',		// COLOR
-			'borderBlockEndColor',			// COLOR
-			'borderInlineStartColor',		// COLOR
-			'borderInlineEndColor'			// COLOR
-	]
-	});
-	
-	Object.defineProperty(AdvancedAttributesListFactory.prototype, 'strictlyLocalAttributes', {
-		value : [
-			'background',					// SHORTHAND
-			'backgroundColor',				//
-			'backgroundPosition',			//
-			'backgroundSize',				//
-			'backgroundImage',				//
-			'backgroundRepeat',				//
-			
-			'borderRadius',					// DIMENSION[1-4] / DIMENSION[1-4]
-	
-		    'borderTopLeftRadius',			// DIMENSION / DIMENSION
-		    'borderTopRightRadius',			// DIMENSION / DIMENSION
-		    'borderBottomRightRadius',		// DIMENSION / DIMENSION
-		    'borderBottomLeftRadius',		// DIMENSION / DIMENSION
-	
-			'borderStartStartRadius',		// DIMENSION / DIMENSION
-			'borderStartEndRadius',			// DIMENSION / DIMENSION
-			'borderEndStartRadius',			// DIMENSION / DIMENSION
-			'borderEndEndRadius',			// DIMENSION / DIMENSION
-	]
-	});
+
+
+
+
+
+
+
+
+
+// This is OBSOLETE.
+// (already defined sooner in this file, and all the way rightly defined in CSSPropertyDescriptors)
+//Object.defineProperty(AdvancedAttributesListFactory.prototype, 'inheritedAttributes', {
+//	value: [
+//		'writingMode',					// horizontal-tb / vertical-lr / vertical-rl / sideways-rl / sideways-lr
+//		'captionSide',					// top / bottom (title or legend of a table)
+//		'listStyleType', 				// disc / circle / square / decimal / georgian, and anything you want... UNICODE codepoint ?
+//		'listStylePosition',			// inside / outside (position of the ::marker : first inline box or before first inline box)
+//		'visibility',					// visible / hidden
+//		'fontFamily',					// list of IDENT values
+//		'fontSize',						// DIMENSION
+//		'lineHeight',					// DIMENSION
+//		'color',						// HASH or FUNCTION
+//		'textOrientation',				// mixed / upright / sideways / sideways-right / sideways-left / use-glyph-orientation
+//		'textAlign',					// left / right / center / justify (start / end)
+//		'textTransform',				// capitalize / uppercase / lowercase / none / full-width / full-size-kana (full-width aligns vertical and horizontal letters on a grid of text)
+//		'textDecoration',				// underline / + dotted / + red / + wavy / + overline
+//		'cursor',						// help / wait / crosshair / not-allowed / zoom-in / grab
+//		'borderCollapse',				// collapse / separate
+//		'whiteSpace',					// normal / nowrap / pre / pre-wrap / pre-line / break-spaces
+//		'wordBreak'						// normal / break-all / keep-all / break-word
+//
+//	]
+//});
+//
+//Object.defineProperty(AdvancedAttributesListFactory.prototype, 'locallyEffectiveAttributes', {
+//	value: [
+//		'display',						// grid / flex / inline / inline-block / block / table / table-cell
+//		'overflowX',					// hidden / visible / scroll
+//		'overflowY',					// hidden / visible / scroll
+//		'verticalAlign',				// baseline / top / middle / bottom / sub / text-top
+//		'clear',						// left / right / both
+//		'float',						// left / right (inline-start / inline-end)
+//		'position',						// static / relative / absolute / fixed / sticky / top / bottom / right / left
+//
+//		'flex',							// SHORTHAND
+//		'flexFlow',						// SHORTHAND
+//		'flexDirection',				// row / column
+//		'flexWrap',						// nowrap / wrap
+//		'flexSchrink',					// INTEGER
+//		'flexGrow',						// INTEGER
+//		'flexBasis',						// INTEGER
+//
+//		'justifyContent',				// flex-start | flex-end | center | space-evenly | space-between | space-around 
+//		'alignItems',					// flex-start | flex-end | center | baseline | stretch
+//		'alignSelf',					// auto | flex-start | flex-end | center | baseline | stretch
+//		'alignContent'					// flex-start | flex-end | center | space-between | space-around | stretch  	
+//	]
+//});
+//
+//Object.defineProperty(AdvancedAttributesListFactory.prototype, 'boxModelAttributes', {
+//	value: [
+//		'boxSizing',					// border-box / content-box
+//		'width',						// DIMENSION
+//		'height',						// DIMENSION
+//		'top',							// DIMENSION
+//		'left',							// DIMENSION
+//		'right',						// DIMENSION
+//		'bottom',						// DIMENSION
+//
+//		'padding',						// SHORTHAND
+//		'margin',						// SHORTHAND
+//		'border',						// SHORTHAND
+//
+//		//			'paddingTop',					// DIMENSION
+//		//			'paddingBottom',				// DIMENSION
+//		//			'paddingLeft',					// DIMENSION
+//		//			'paddingRight',					// DIMENSION
+//
+//		'paddingBlockStart',			// DIMENSION
+//		'paddingInlineEnd',				// DIMENSION
+//		'paddingBlockEnd',				// DIMENSION
+//		'paddingInlineStart',			// DIMENSION
+//
+//		//			'marginTop',					// DIMENSION
+//		//			'marginBottom',					// DIMENSION
+//		//			'marginLeft',					// DIMENSION
+//		//			'marginRight',					// DIMENSION
+//
+//		'marginBlockStart',				// DIMENSION
+//		'marginBlockEnd',				// DIMENSION
+//		'marginInlineStart',			// DIMENSION
+//		'marginInlineEnd',				// DIMENSION
+//
+//		'borderBlockStart',				// width, style, color
+//		'borderBlockEnd',				// width, style, color
+//		'borderInlineStart',			// width, style, color
+//		'borderInlineEnd',				// width, style, color
+//
+//		'borderWidth',					// DIMENSION
+//		'borderBlockStartWidth',		// DIMENSION
+//		'borderBlockEndWidth',			// DIMENSION
+//		'borderInlineStartWidth',		// DIMENSION
+//		'borderInlineEndWidth',			// DIMENSION
+//
+//		'borderStyle',					// none / dotted / inset / dashed / solid / double / groove
+//		'borderBlockStartStyle',		// none / dotted / inset / dashed / solid / double / groove
+//		'borderBlockEndStyle',			// none / dotted / inset / dashed / solid / double / groove
+//		'borderInlineStartStyle',		// none / dotted / inset / dashed / solid / double / groove
+//		'borderInlineEndStyle',			// none / dotted / inset / dashed / solid / double / groove
+//
+//		'borderColor',					// COLOR
+//		'borderBlockStartColor',		// COLOR
+//		'borderBlockEndColor',			// COLOR
+//		'borderInlineStartColor',		// COLOR
+//		'borderInlineEndColor'			// COLOR
+//	]
+//});
+//
+//Object.defineProperty(AdvancedAttributesListFactory.prototype, 'strictlyLocalAttributes', {
+//	value: [
+//		'background',					// SHORTHAND
+//		'backgroundColor',				//
+//		'backgroundPosition',			// SHORTHAND
+//		'backgroundPositionTop',		//
+//		'backgroundPositionLeft',		//
+//		'backgroundImage',				//
+//		'backgroundRepeat',				//
+//
+//		'borderRadius',					// DIMENSION[1-4] / DIMENSION[1-4]
+//
+//		'borderTopLeftRadius',			// DIMENSION / DIMENSION
+//		'borderTopRightRadius',			// DIMENSION / DIMENSION
+//		'borderBottomRightRadius',		// DIMENSION / DIMENSION
+//		'borderBottomLeftRadius',		// DIMENSION / DIMENSION
+//
+//		'borderStartStartRadius',		// DIMENSION / DIMENSION
+//		'borderStartEndRadius',			// DIMENSION / DIMENSION
+//		'borderEndStartRadius',			// DIMENSION / DIMENSION
+//		'borderEndEndRadius',			// DIMENSION / DIMENSION
+//	]
+//});
 
 
 
@@ -515,7 +590,7 @@ var BinarySlice = require('src/core/BinarySlice');
  */
 
 
-	//\w+\.prototype\.tokenType\s?=\s?"[^"]+";
+//\w+\.prototype\.tokenType\s?=\s?"[^"]+";
 
 //	var TokenTypes = {};
 //	TokenTypes.BadStringToken = 0;
@@ -549,10 +624,10 @@ var BinarySlice = require('src/core/BinarySlice');
 //	TokenTypes.NumberToken = 28;
 //	TokenTypes.PercentageToken = 29;
 //	TokenTypes.DimensionToken = 30;
-	
-	// ^\t(\w{1,2})\s?\t\s?\t(\w+)
-	// Units.\1 = {\Runit : '\1',\R\tfullName : '\2'\R}
-	
+
+// ^\t(\w{1,2})\s?\t\s?\t(\w+)
+// Units.\1 = {\Runit : '\1',\R\tfullName : '\2'\R}
+
 //	var Units = {};
 //	Units.cm = {
 //		idx : 0,
@@ -596,132 +671,10 @@ var BinarySlice = require('src/core/BinarySlice');
 //		fullName : 'pixels',
 //		equivStr : '1px = 1/96th of 1in '
 //	}
-	
-	
-	
-	
-	
-	/*
-	 * constructor PackedAttributeFactory
-	 */
-//	var PackedAttributeFactory = function(attributesGroupName) {
-//		this.attributesGroupName = attributesGroupName;
-//		CSSPropertyBuffer.call(this);
-//	}
-//	
-//	PackedAttributeFactory.prototype = Object.create(CSSPropertyBuffer.prototype);
-//	
-//	Object.defineProperty(PackedAttributeFactory.prototype, 'objectType', {
-//		value : 'PackedAttributeFactory',
-//		writable : true
-//	});
-//	
-//	Object.defineProperty(PackedAttributeFactory.prototype, 'attributesGroupName', {
-//		value : '',
-//		writable : true
-//	});
-//	
-//	Object.defineProperty(PackedAttributeFactory.prototype, 'fromAttributesList', {
-//		value : function(advancedAttributesList) {
-//			
-//			
-//			
-////			CSSPropertyBuffer
-//		}
-//	});
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	/**
-	 * VERY SILLY implementation of some sort of a static macro,
-	 * 		that'll be used/needed (as a statically defined property-list)
-	 * 		to populate CSSPropertySetBuffer's default value... 
-	 */
-	var allKnownPropertiesList = function() {
-//		console.log(this);
-		this.baseList.forEach(function(propertyName) {
-			this[propertyName] = 0;
-		}, this);
-	}
-	allKnownPropertiesList.prototype = {};
-	
-	// FIXME: (seems fixed) if it's iterable, the props on the prototype are defined as "non enumerable" 
-	Object.defineProperty(allKnownPropertiesList.prototype, 'objectType', {
-		value : ''
-	});
-	Object.defineProperty(allKnownPropertiesList.prototype, 'baseList', {
-		value : (function() {
-//			console.log(new AdvancedAttributesListFactory());
-			var knownAttributesList = [];
-			for (let propertiesGroup in (new AdvancedAttributesListFactory())) {
-				propertiesGroup = propertiesGroup.lowerCaseFirstChar().replace(/List/, '');
-//				console.log(propertiesGroup, AdvancedAttributesListFactory.prototype[propertiesGroup]);
-				if (!AdvancedAttributesListFactory.prototype[propertiesGroup])
-					continue;
-				AdvancedAttributesListFactory.prototype[propertiesGroup].forEach(function(propertyName) {
-					knownAttributesList.push(propertyName);
-				});
-			}
-			return knownAttributesList;
-		})()
-	});
-	Object.defineProperty(allKnownPropertiesList.prototype, 'baseSlices', {
-		value : (function() {
-				var baseSlices = {}, start = 0;
-				for (let propertiesGroup in (new AdvancedAttributesListFactory())) {
-					propertiesGroup = propertiesGroup.lowerCaseFirstChar().replace(/List/, '');
-					if (!AdvancedAttributesListFactory.prototype[propertiesGroup])
-						continue;
-					baseSlices[propertiesGroup] = new BinarySlice(
-						start,
-						AdvancedAttributesListFactory.prototype[propertiesGroup].length
-					);
-					start += AdvancedAttributesListFactory.prototype[propertiesGroup].length;
-				}
-				return baseSlices;
-			})()
-		});
-	
-	
-	
-	
-	
-	
-//	Object.defineProperty(AdvancedAttributesListFactory, 'TokenTypes', {
-//		value : TokenTypes
-//	});
-	
-	Object.defineProperty(AdvancedAttributesListFactory, 'allKnownCSSPropertiesFactory', {
-		value : function() {
-//			console.log('allKnownCSSPropertiesFactory');
-			return new allKnownPropertiesList();
-		}
-	});
-	
-	Object.defineProperty(AdvancedAttributesListFactory, 'allKnownCSSPropertiesStaticMap', {
-		value : function() {
-			return allKnownPropertiesList.prototype.baseList;
-		}
-	});
-	
-	Object.defineProperty(AdvancedAttributesListFactory, 'allKnownCSSPropertiesBoundaries', {
-		value : function() {
-			return allKnownPropertiesList.prototype.baseSlices;
-		}
-	});
-	
-	
-	
 
 
-//module.exports = factory.Maker.getClassFactory(classConstructor);
+
+
+
+
 module.exports = AdvancedAttributesListFactory;
