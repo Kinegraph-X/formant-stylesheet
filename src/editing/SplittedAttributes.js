@@ -226,12 +226,6 @@ Object.defineProperty(AttributesList.prototype, 'setAttributeFromKeyValue', {
 
 
 
-var CSSPropertySetBufferFactory = function(attributes) {
-	
-}
-CSSPropertySetBufferFactory.prototype = {};
-CSSPropertySetBufferFactory.prototype.objectType = 'CSSPropertySetBufferFactory';
-
 
 
 
@@ -242,7 +236,7 @@ CSSPropertySetBufferFactory.prototype.objectType = 'CSSPropertySetBufferFactory'
  */
 var SplittedAttributesListBaseClass = function(attributes) {
 	Object.defineProperty(this, 'CSSPropertySetBuffer', {value: new CSSPropertySetBuffer()});
-	this.disambiguateAttributesAndAssignInitialValues(attributes);
+	this.disambiguateAttributes(attributes);
 }
 SplittedAttributesListBaseClass.prototype = {};	//Object.create(AttributesList.prototype);
 Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'objectType', {value: 'SplittedAttributesListBaseClass'});
@@ -253,28 +247,81 @@ Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'LocallyEffecti
 Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'BoxModelAttributes', {value: Object.keys(CSSPropertyDescriptors.splitted.boxModelAttributes)});
 Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'StrictlyLocalAttributes', {value: Object.keys(CSSPropertyDescriptors.splitted.strictlyLocalAttributes)});
 
-Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'disambiguateAttributesAndAssignInitialValues', {
+Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'disambiguateAttributes', {
 	value: function(attributes) {
-		var packedCSSProperty;
-		this[this.purpose].forEach(function(attrName) {
-			packedCSSProperty = new CSSPropertyBuffer(null, attrName);
-			if (attributes[attrName]) {
+		var self = this, definedAttributes = Object.keys(attributes), packedCSSProperty;
+		
+		for (var i = 0, l = definedAttributes.length; i < l; i++) {
+			(function(attrIdx, attrName) {
+				if (!CSSPropertyDescriptors.all[attrName]) {
+					console.warn('Unsupported CSS Property:', attrName);
+					return;
+				}
+				packedCSSProperty = new CSSPropertyBuffer(null, attrName);
 				packedCSSProperty.setValue(
 					parser.parseAListOfComponentValues(attributes[attrName])
 				);
-			}
-			else {
-				packedCSSProperty.setValue(
-					parser.parseAListOfComponentValues(
-						CSSPropertyDescriptors.all[attrName].prototype.initialValue
-					)
-				);
-			}
-			this.CSSPropertySetBuffer.setPropFromBuffer(attrName, packedCSSProperty);
-		}, this);
+				// Set the isInitialValue flag to false
+				packedCSSProperty._buffer.set([0], CSSPropertyBuffer.prototype.bufferSchema.isInitialValue.start);
+				
+				self.CSSPropertySetBuffer.setPropFromBuffer(attrName, packedCSSProperty);
+			})(i, definedAttributes[i]);
+		}
+//		this[this.purpose].forEach(function(attrName) {
+//			packedCSSProperty = new CSSPropertyBuffer(null, attrName);
+//			if (attributes[attrName]) {
+//				packedCSSProperty.setValue(
+//					parser.parseAListOfComponentValues(attributes[attrName])
+//				);
+//			}
+//			else {
+//				packedCSSProperty.setValue(
+//					parser.parseAListOfComponentValues(
+//						CSSPropertyDescriptors.all[attrName].prototype.initialValue
+//					)
+//				);
+//			}
+//			this.CSSPropertySetBuffer.setPropFromBuffer(attrName, packedCSSProperty);
+//		}, this);
 	}
 });
 
+//Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'populateInitialValues', {
+//	value: function() {
+//		// CAUTION: Categories in CSSPropertyDescriptors don't correspond
+//		// to the "purposes" used here :
+//		// => purposes are camel-case although categories are dromedar-case
+//		var itemSize = this.CSSPropertySetBuffer.itemSize,
+//			purpose = this.purpose.lowerCaseFirstChar();
+//		var boundaries = CSSPropertyDescriptors.boundaries[purpose];
+//		this.CSSPropertySetBuffer._buffer.set(
+//			this.CachedCSSPropertySetBuffer._buffer.slice(
+//				boundaries.start * itemSize,
+//				(boundaries.start + boundaries.length) * itemSize
+//			),
+//			boundaries.start * itemSize
+//		);
+//	}
+//});
+//
+//Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'CachedCSSPropertySetBuffer', {
+//	value: (function() {
+//		var packedCSSProperty, propertySetBuffer = new CSSPropertySetBuffer();
+//		for (var attrGroup in CSSPropertyDescriptors.splitted) {
+//			Object.keys(CSSPropertyDescriptors.splitted[attrGroup]).forEach(function(attrName) {
+//				packedCSSProperty = new CSSPropertyBuffer(null, attrName);
+//				packedCSSProperty.setValue(
+//					parser.parseAListOfComponentValues(
+//						CSSPropertyDescriptors.all[attrName].prototype.initialValue
+//					)
+//				);
+//				propertySetBuffer.setPropFromBuffer(attrName, packedCSSProperty);
+//			}, this);
+//			propertySetBuffer.setGroupIsInitialValue(attrGroup, true);
+//		}
+//		return propertySetBuffer;
+//	})()
+//});
 
 
 
@@ -367,37 +414,53 @@ var AdvancedAttributesListFactory = function(attributes) {
 	this.boxModelAttributes = new BoxModelAttributesList(attributes);
 	this.strictlyLocalAttributes = new StrictlyLocalAttributesList(attributes);
 
-	this.stdAttributes = new AttributesList(attributes);
+//	this.stdAttributes = new AttributesList(attributes);
 }
 AdvancedAttributesListFactory.prototype = {}
 
 Object.defineProperty(AdvancedAttributesListFactory.prototype, 'get', {
 	value: function(attr) {
-		return this.stdAttributes.get(attr);
+//		return this.stdAttributes.get(attr);
 	}
 });
 Object.defineProperty(AdvancedAttributesListFactory.prototype, 'set', {
 	value: function(attr, value) {
-		this.stdAttributes.set(attr, value);
+//		this.stdAttributes.set(attr, value);
 	}
 });
 // FIXME: should update all partial lists down the object
 Object.defineProperty(AdvancedAttributesListFactory.prototype, 'setApply', {
 	value: function(attrList) {
-		Object.entries(attrList).forEach(function(pair) {
-			this.stdAttributes.set(pair[0], pair[1]);
-		}, this);
+//		Object.entries(attrList).forEach(function(pair) {
+//			this.stdAttributes.set(pair[0], pair[1]);
+//		}, this);
 	}
 });
 Object.defineProperty(AdvancedAttributesListFactory.prototype, 'getAllAttributes', {
 	value: function() {
-		return this.stdAttributes;
+		var allAttributes = {};
+		for (var attrGroup in this) {
+			Object.assign(allAttributes, this[attrGroup].CSSPropertySetBuffer.getPropertyGroupAsAttributesList(attrGroup));
+		}
+		return allAttributes;
+	}
+});
+
+Object.defineProperty(AdvancedAttributesListFactory.prototype, 'getAllDefinedAttributes', {
+	value: function() {
+		var allAttributes = {};
+		for (var attrGroup in this) {
+//			console.log(this[attrGroup].CSSPropertySetBuffer.getPropertyGroupAsAttributesList(attrGroup));
+			Object.assign(allAttributes, this[attrGroup].CSSPropertySetBuffer.getDefinedPropertiesFromGroupAsAttributesList(attrGroup));
+		}
+//		console.log(allAttributes);
+		return allAttributes;
 	}
 });
 
 Object.defineProperty(AdvancedAttributesListFactory.prototype, 'linearize', {
 	value: function() {
-		return this.stdAttributes.linearize();
+		return new AttributesList(this.getAllDefinedAttributes()).linearize();
 	}
 });
 
@@ -413,6 +476,7 @@ Object.defineProperty(AdvancedAttributesListFactory, 'fromAST', {
 				attrList[name] = declaration.value.reduce(AdvancedAttributesListFactory.flattenDeclarationValues, '');
 			}
 		});
+//		console.log(attrList);
 		return new AdvancedAttributesListFactory(attrList);
 	}
 });

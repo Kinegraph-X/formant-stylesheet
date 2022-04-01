@@ -20,6 +20,7 @@ StylePropertyEnhancer.prototype.toCSSPropertyBuffer = function(attrName, attrVal
 //	console.log(parser.parseAListOfComponentValues(attrValue));
 	
 	packedCSSProperty.setValue(parser.parseAListOfComponentValues(attrValue));
+	packedCSSProperty._buffer.set([0], CSSPropertyBuffer.prototype.bufferSchema.isInitialValue.start);
 	
 	return packedCSSProperty;
 }

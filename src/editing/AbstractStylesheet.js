@@ -9,6 +9,7 @@ var appConstants = require('src/appLauncher/appLauncher');
 var TypeManager = require('src/core/TypeManager');
 var StyleRule = require('src/editing/StyleRule');
 var Style = require('src/editing/Style');
+var AdvancedAttributesList = require('src/editing/SplittedAttributes');
 
 	
 var AbstractStylesheet = function(styleRules, name) {
@@ -62,7 +63,13 @@ AbstractStylesheet.prototype.iterateOnRules = function(styleRules) {
 }
 
 AbstractStylesheet.prototype.newRule = function(rawRule) {
-	return new StyleRule(this.length++, rawRule);
+	if (rawRule instanceof AdvancedAttributesList) {
+		var selector = rawRule.selector;
+		delete rawRule.selector;
+		return StyleRule.fromAdvancedStyleAttributes(this.length++, selector, rawRule)
+	}
+	else
+		return new StyleRule(this.length++, rawRule);
 }
 
 AbstractStylesheet.prototype.deleteRule = function(selector) {
@@ -75,15 +82,14 @@ AbstractStylesheet.prototype.addRule = function(rule, selector) {
 	if (!(rule instanceof StyleRule))
 		sRule = this.newRule(rule);
 	else
-	
 		sRule = rule;
-	selector = rule.selector || (rule.attrIFace && rule.attrIFace.selector) || selector;
+	selector = rule.selector || sRule.selector || (rule.attrIFace && rule.attrIFace.selector) || selector;
 	
 	if (!selector) {
 		console.warn('AbstractStylesheet: constructing a styleRule based on an empty selector', rule, 'Returning...');
 		return;
 	}
-	
+//	console.error(rule);
 	this.rules[selector] = sRule;
 }
 
@@ -166,7 +172,7 @@ AbstractStylesheet.prototype.shouldSerializeAll = function() {
 	var styleAsString = '';
 	for (let selector in this.rules) {
 		this.rules[selector].applyAdditionnalStyleAsOverride();
-		styleAsString += this.rules[selector].strRule = this.rules[selector].styleIFace.linearize();
+		styleAsString += (this.rules[selector].strRule = this.rules[selector].styleIFace.linearize());
 	}
 	this.currentAPI.setContent(styleAsString);
 }

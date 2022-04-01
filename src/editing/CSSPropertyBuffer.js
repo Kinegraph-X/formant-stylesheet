@@ -3,10 +3,10 @@
  */
 
 
-var TypeManager = require('src/core/TypeManager');
+//var TypeManager = require('src/core/TypeManager');
 var BinarySchemaFactory = require('src/core/BinarySchema');
 var GeneratorFor16bitsInt = require('src/core/UIDGenerator').GeneratorFor16bitsInt;
-var CSSPropertyDescriptors = require('src/editing/CSSPropertyDescriptors');
+//var CSSPropertyDescriptors = require('src/editing/CSSPropertyDescriptors');
 var parser = require('src/parsers/css-parser_forked');
 
 var CSSPropertyBuffer = function(initialLoad, propName) {
@@ -26,7 +26,7 @@ var CSSPropertyBuffer = function(initialLoad, propName) {
 //			}
 //	}
 }
-CSSPropertyBuffer.prototype = Object.create(Uint8Array.prototype);
+CSSPropertyBuffer.prototype = {};
 CSSPropertyBuffer.prototype.objectType = 'CSSPropertyBuffer';
 
 CSSPropertyBuffer.prototype.setValue = function(parsedValue) {
@@ -48,6 +48,7 @@ CSSPropertyBuffer.prototype.setValue = function(parsedValue) {
 			valueAsParsed = this.functionToCanonical(parsedValue[0]);
 		else
 			valueAsParsed = this.fixValueFromParser(parsedValue[0]);
+//		console.log(valueAsParsed);
 	}
 	else if (parsedValue.length > 1){
 		concatVal = this.concatenateBackFromParser(parsedValue);
@@ -73,20 +74,25 @@ CSSPropertyBuffer.prototype.setValue = function(parsedValue) {
 
 CSSPropertyBuffer.prototype.functionToCanonical = function(valueAsParsed) {
 	var value, tokenTypeFromParser;
-	
 	if (valueAsParsed.name === 'rgb' || valueAsParsed.name === 'rgba') {
 		value = new (LocalTokenFromParserFactory(null, 'HASH'))();
+		value.type = 'hash';
 		value.repr = '#';
 		valueAsParsed.value.forEach(function(val) {
 			tokenTypeFromParser = Object.getPrototypeOf(val).tokenType;
 			if (tokenTypeFromParser === "WHITESPACE" || tokenTypeFromParser === "COMMA")
 				return;
 			else 
-				value.repr += val.value.toString(16).padStart(2, '0');
+				value.repr += parseInt(val.value).toString(16).padStart(2, '0');
 		}, this);
 		return value;
 	}
 	else {
+		// As for now, "format" and "local" are seen as unsupported functions
+		if ((valueAsParsed.name === 'format' || valueAsParsed.name === 'local')
+			|| (valueAsParsed.name === 'animation' || valueAsParsed.name === 'animationName' || valueAsParsed.name === 'animationDuration' || valueAsParsed.name === 'animationIterationCount' || valueAsParsed.name === 'animationIterationFunction' || valueAsParsed.name === 'animationDelay'))
+			return new (LocalTokenFromParserFactory(null, 'UNDEFINED'))();
+		
 		console.warn('CSSPropertyBuffer->functionToCanonical: unsupported function given (' + valueAsParsed.name + ').');
 		return new (LocalTokenFromParserFactory(null, 'UNDEFINED'))();
 	} 
@@ -103,7 +109,9 @@ CSSPropertyBuffer.prototype.populate = function(tokenType, value) {
 	var strVal = normalizedValue.repr,
 		strLength = strVal.length,
 		strBuf = strVal.getNcharsAsCharCodesArray(this.stdStrLength, 0)[1],
-		valueBuf = GeneratorFor16bitsInt.IntFromNumber(normalizedValue.value);
+		valueBuf = GeneratorFor16bitsInt.intFromNumber(normalizedValue.value);
+		
+//	console.log('POPULATE', strVal, strBuf, value);
 
 	// this.TokenTypes[tokenType] is the TokenType from the parser
 	// represented as a numeric constant
@@ -153,7 +161,7 @@ CSSPropertyBuffer.prototype.parseValue = function(singleValueAsString) {
 }
 
 CSSPropertyBuffer.prototype.fixValueFromParser = function(parsedValue) {
-	return (new (LocalTokenFromParserFactory(parsedValue))(
+	return (new (LocalTokenFromParserFactory(parsedValue, Object.getPrototypeOf(parsedValue).tokenType))(
 		null,
 		parsedValue.value,
 		parsedValue.name,
@@ -177,7 +185,7 @@ CSSPropertyBuffer.prototype.concatenateBackFromParser = function(parsedValue) {
 					concatVal += val.repr + '%';
 					break;
 			case 'HASH' :
-					concatVal += '#' + val.value;
+					concatVal += val.value ? '#' + val.value : val.repr;
 					break;
 			case 'COMMA' :
 					concatVal += ',';
@@ -190,7 +198,7 @@ CSSPropertyBuffer.prototype.concatenateBackFromParser = function(parsedValue) {
 			case 'CLOSEPAREN' :
 					concatVal += ')';
 					break;
-			default : concatVal += typeof val.repr !== 'undefined' ? val.repr : val.value.toString();
+			default : concatVal += typeof val.repr !== 'undefined' ? val.repr + this.Units[val.unit || ''].unit : val.value.toString() + this.Units[val.Units || ''].unit;
 		}
 	}, this);
 	return concatVal;
@@ -210,6 +218,10 @@ CSSPropertyBuffer.prototype.getValueAsNumber = function() {
 
 CSSPropertyBuffer.prototype.typedArrayToString = function(tArray, strLength) {
 	return tArray.bufferToString(strLength);
+}
+
+CSSPropertyBuffer.prototype.setIsInitialValue = function(bool) {
+	this._buffer.set([1], this.bufferSchema.isInitialValue.start);
 }
 
 // bufferedValueToString() is an alias for getValueAsString()
@@ -240,8 +252,14 @@ CSSPropertyBuffer.prototype.byteTuppleTo16bits = function(bytesInt8Array) {
 
 
 
-
-
+//var countTokenTypes = {
+//	IDENT : 0,
+//	NUMBER : 0,
+//	PERCENTAGE : 0,
+//	COLORorFUNCTION : 0,
+//	un_defined : 0
+//}
+//console.log(countTokenTypes);
 
 
 var LocalTokenFromParserFactory = function(parsedValue, tokenTypeFromParser) {
@@ -254,25 +272,30 @@ var LocalTokenFromParserFactory = function(parsedValue, tokenTypeFromParser) {
 		var LocalTokenFromParser = function(tokenType, value, name, type, repr, unit) {
 			var localValue = 0, localType = 'string', localRepr = '';
 			if (tokenTypeFromParser === 'IDENT' || tokenTypeFromParser === 'NONPARSED') {
-				localRepr  = (repr || (value ? value.toString() : ''));
+				localRepr  = repr || (value ? value.toString() : '');
 				localType = 'string';
+//				countTokenTypes['IDENT']++;
 			}
-			else if (typeof value !== 'undefined' && Object.getPrototypeOf(value) === Number.prototype) {
+			else if (tokenTypeFromParser === 'NUMBER' || tokenTypeFromParser === 'DIMENSION') {	// typeof value !== 'undefined' && Object.getPrototypeOf(value) === Number.prototype
 				localRepr = (value || localValue).toString() + (unit || '');
 				localValue = value || localValue;
 				localType = 'number';
+//				countTokenTypes['NUMBER']++;
+			}
+			else if (type === 'hash' || type === 'id' || type === 'unrestricted' || (tokenTypeFromParser === 'FUNCTION' && name === 'rgb')) {
+				localRepr  = repr || '#' + (value || localValue).toString();
+				localType = 'hash';
+//				countTokenTypes['COLORorFUNCTION']++;
 			}
 			else if (tokenTypeFromParser === 'PERCENTAGE') {
 				localValue = value || localValue;
-				localRepr  = (repr || (value ? value.toString() : '0'))  + '%';
+				localRepr  = (repr ? (repr.slice(-1) === '%' ? repr : repr + '%') : (value ? value.toString() : '0')  + '%');
 				localType = 'percentage';
-			}
-			else if (type === 'unrestricted' || (tokenTypeFromParser === 'FUNCTION' && name === 'rgb')) {
-				localRepr  = value ? value.toString() : '0';
-				localType = 'hash';
+//				countTokenTypes['PERCENTAGE']++;
 			}
 			else if (typeof type === 'undefined') {
 				localRepr  = value ? value.toString() : '';
+//				countTokenTypes['un_defined']++;
 			}
 			
 			this.localTokenType = tokenType ? tokenType : tokenTypeFromParser.capitalizeFirstChar() + 'Token';
@@ -364,7 +387,7 @@ Object.defineProperty(CSSPropertyBuffer.prototype, 'Units', {
 	value : {
 		'' : {
 			idx : 0,
-			unit : 'NA',
+			unit : '',
 			fullName : 'non-applicable',
 			equivStr : 'some values have no unit'
 		},
@@ -421,6 +444,12 @@ Object.defineProperty(CSSPropertyBuffer.prototype, 'Units', {
 			unit : 'rem',
 			fullName : 'root em',
 			equivStr : '1rem is equivalent to the root element\'s font-size'
+		},
+		s : {
+			idx : 10,
+			unit : 's',
+			fullName : 'seconds',
+			equivStr : 'seconds are used when defining the duration of an animation'
 		}
 	}
 });
@@ -443,7 +472,8 @@ Object.defineProperty(CSSPropertyBuffer.prototype, 'bufferSchema', {
 			'propertyType',
 			'repr',
 			'reprLength',
-			'unit'
+			'unit',
+			'isInitialValue'
 		],
 		[
 			1,
@@ -451,12 +481,13 @@ Object.defineProperty(CSSPropertyBuffer.prototype, 'bufferSchema', {
 			1,
 			CSSPropertyBuffer.prototype.stdStrLength,		// defining a tight limit to the size of the representation of a string is obviously a strong opinion: lets keep some neurons on it)
 			1,
+			1,
 			1
 		]
 )
 });
 
-	
+//console.log(CSSPropertyBuffer.prototype.bufferSchema);
 
 
 

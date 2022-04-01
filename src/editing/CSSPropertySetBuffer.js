@@ -1,8 +1,8 @@
 /**
- * @constructor CSSPropertySetBuffer
+ * construct. CSSPropertySetBuffer
  */
 
-var TypeManager = require('src/core/TypeManager');
+//var TypeManager = require('src/core/TypeManager');
 var MemoryMapBuffer = require('src/core/MemoryMapBuffer');
 
 var CSSPropertyBuffer = require('src/editing/CSSPropertyBuffer');
@@ -12,12 +12,16 @@ var stylePropertyConverter = new StylePropertyEnhancer();
 
 var parser = require('src/parsers/css-parser_forked');
 
-
+/**
+ * @constructor CSSPropertySetBuffer
+ */
 var CSSPropertySetBuffer = function(initialContent) {
 	var itemSize = CSSPropertyBuffer.prototype.bufferSchema.size;
-	initialContent = initialContent || this.propertiesStaticMap;
 	MemoryMapBuffer.call(this, itemSize, initialContent);
 	this.objectType = 'CSSPropertySetBuffer';
+	
+	if (!initialContent)
+		this.populateInitialValues();
 }
 CSSPropertySetBuffer.prototype = Object.create(MemoryMapBuffer.prototype);
 CSSPropertySetBuffer.prototype.objectType = 'CSSPropertySetBuffer';
@@ -25,16 +29,40 @@ CSSPropertySetBuffer.prototype.objectType = 'CSSPropertySetBuffer';
 CSSPropertySetBuffer.prototype.propertiesStaticArray = Object.keys(CSSPropertyDescriptors.all);
 CSSPropertySetBuffer.prototype.propertiesAccessGroupsBoundaries = CSSPropertyDescriptors.boundaries;
 
+CSSPropertySetBuffer.prototype.populateInitialValues = function() {
+	var start = 0, end = 0;
+	// we assume the propertiesAccessGroupsBoundaries object isn't ordered, although JS objects are ordered now
+	for (var attrGroup in this.propertiesAccessGroupsBoundaries) {
+		if (this.propertiesAccessGroupsBoundaries[attrGroup].start > start) {
+			start = this.propertiesAccessGroupsBoundaries[attrGroup].start;
+			end = start + this.propertiesAccessGroupsBoundaries[attrGroup].length;
+		}
+	}
+	this._buffer.set(
+		CachedCSSPropertySetBuffer._buffer.slice(
+			0,
+			end * this.itemSize
+		)
+	);
+}
+
 CSSPropertySetBuffer.prototype.getPosForProp = function(propName) {
 	var propIdx = 0;
+
 	if ((propIdx = this.propertiesStaticArray.indexOf(propName)) !== -1) {
 		return propIdx;
 	}
 	return -1;
 }
 
+CSSPropertySetBuffer.prototype.getPropForPos = function(pos) {
+	return this.propertiesStaticArray[pos];
+}
+
 CSSPropertySetBuffer.prototype.getProp = function(propName) {
 	var posForProp = this.getPosForProp(propName) * this.itemSize;
+//	if (propName === 'display')
+//		console.log(posForProp);
 	var propAsBuffer = new CSSPropertyBuffer(
 			this._buffer.slice(posForProp, posForProp + this.itemSize),
 			propName
@@ -52,12 +80,12 @@ CSSPropertySetBuffer.prototype.setPropFromBuffer = function(propName, propBuffer
 		if ((posForProp = this.getPosForProp(propName) * this.itemSize) < 0)
 			return;
 		this._buffer.set(propBuffer._buffer, posForProp);
-//		console.log(posForProp, this._buffer, propBuffer._buffer);
 	}
 }
 
 CSSPropertySetBuffer.prototype.setPropFromShorthand = function(propName, value) {
 	if (CSSPropertyDescriptors.all[propName].prototype.mayBeAbbreviated) {
+//		console.log(propName, value);
 		this.handleAbbreviatedValues(propName, value);
 		return;
 	}
@@ -75,8 +103,8 @@ CSSPropertySetBuffer.prototype.setPropFromShorthand = function(propName, value) 
 		// 			As for now, we rely on the order of CSSPropertyDescriptors.all[propName].prototype.expandedPropNames
 		//			the following code won't work for all use-cases
 		expandedPropertyName = CSSPropertyDescriptors.all[propName].prototype.expandedPropNames[key];
-//		console.log(propName, key, val);
 		tmpBuffer = new CSSPropertyBuffer(null, expandedPropertyName);
+//		console.log(expandedPropertyName, val);
 		tmpBuffer.parseAndSetValue(val);
 		this.setPropFromBuffer(expandedPropertyName, tmpBuffer);
 	}, this);
@@ -84,6 +112,7 @@ CSSPropertySetBuffer.prototype.setPropFromShorthand = function(propName, value) 
 
 CSSPropertySetBuffer.prototype.handleAbbreviatedValues = function(propName, value) {
 	var offset = 0, tmpBuffer, valueList = parser.parseAListOfComponentValues(value.trim()), expandedPropertyName;
+//	console.log(value.trim());
 	if (valueList.length === 1) {
 		CSSPropertyDescriptors.all[propName].prototype.expandedPropNames.forEach(function(expandedPropertyName, key) {
 			tmpBuffer = new CSSPropertyBuffer(null, expandedPropertyName);
@@ -128,7 +157,7 @@ CSSPropertySetBuffer.prototype.getPropertyGroupAsObject = function(groupName) {
 	var boundaries = this.propertiesAccessGroupsBoundaries[groupName];
 	
 	var ret = {};
-	for (var i = boundaries.start * this.itemSize, end = boundaries.start + boundaries.length * this.itemSize; i < end; i += this.itemSize) {
+	for (var i = boundaries.start * this.itemSize, end = i + boundaries.length * this.itemSize; i < end; i += this.itemSize) {
 		propName = this.propertiesStaticArray[boundaries.start + c];
 		ret[propName] = (new CSSPropertyBuffer(
 			this._buffer.slice(i, i + this.itemSize),
@@ -139,23 +168,61 @@ CSSPropertySetBuffer.prototype.getPropertyGroupAsObject = function(groupName) {
 	return ret;
 }
 
+CSSPropertySetBuffer.prototype.getPropertyGroupAsAttributesList = function(groupName) {
+	var propName;
+	var c = 0;
+	var boundaries = this.propertiesAccessGroupsBoundaries[groupName];
+	
+	var ret = {};
+	for (var i = boundaries.start * this.itemSize, end = i + boundaries.length * this.itemSize; i < end; i += this.itemSize) {
+		propName = this.propertiesStaticArray[boundaries.start + c];
+		ret[propName] = this.getProp(propName).getValueAsString();
+		c++;
+	}
+	return ret;
+}
+
+CSSPropertySetBuffer.prototype.getDefinedPropertiesFromGroupAsAttributesList = function(groupName) {
+	var propName, propValue;
+	var c = 0;
+	var boundaries = this.propertiesAccessGroupsBoundaries[groupName];
+	
+	var ret = {};
+	for (var i = boundaries.start * this.itemSize, end = i + boundaries.length * this.itemSize; i < end; i += this.itemSize) {
+		propName = this.propertiesStaticArray[boundaries.start + c];
+		if (this._buffer[i + CSSPropertyBuffer.prototype.bufferSchema.isInitialValue.start] === 0)
+			ret[propName] = this.getProp(propName).getValueAsString();
+		c++;
+	}
+	return ret;
+}
+
 CSSPropertySetBuffer.prototype.getPropertyGroupAsBuffer = function(groupName) {
 	var boundaries = this.propertiesAccessGroupsBoundaries[groupName];
-	return this._buffer.slice(boundaries.start * this.itemSize, boundaries.start + boundaries.length * this.itemSize);
+	var start = boundaries.start * this.itemSize, end = start + boundaries.length * this.itemSize;
+	return this._buffer.slice(start, end);
 }
 
 CSSPropertySetBuffer.prototype.setPropertyGroupFromGroupBuffer = function(groupName, groupBuffer) {
 	var boundaries = this.propertiesAccessGroupsBoundaries[groupName];
-	this._buffer.set(groupBuffer, boundaries.start * this.itemSize);
+	var start = boundaries.start * this.itemSize;
+	this._buffer.set(groupBuffer, start);
 }
 
 CSSPropertySetBuffer.prototype.overridePropertyGroupFromGroupBuffer = function(groupName, groupBuffer) {
 	var c = 0, boundaries = this.propertiesAccessGroupsBoundaries[groupName];
-	for (var i = boundaries.start * this.itemSize, end = boundaries.start + boundaries.length * this.itemSize; i < end; i += this.itemSize) {
-		if (groupBuffer[c] !== 0)
+	for (var i = boundaries.start * this.itemSize, end = i + boundaries.length * this.itemSize; i < end; i += this.itemSize) {
+		// groupBuffer[c + offset] represents the flag "isInitialValue"
+		if (groupBuffer[c + CSSPropertyBuffer.prototype.bufferSchema.isInitialValue.start] === 0)
 			this._buffer.set(groupBuffer.slice(c, c + this.itemSize), i);
-		
 		c += this.itemSize;
+	}
+}
+
+CSSPropertySetBuffer.prototype.setGroupIsInitialValue = function(groupName, bool) {
+	var c = 0, boundaries = this.propertiesAccessGroupsBoundaries[groupName];
+	for (var i = boundaries.start * this.itemSize, end = i + boundaries.length * this.itemSize; i < end; i += this.itemSize) {
+		this._buffer.set([+(bool || 0)], i + CSSPropertyBuffer.prototype.bufferSchema.isInitialValue.start);
 	}
 }
 
@@ -181,6 +248,35 @@ CSSPropertySetBuffer.prototype.bufferedValueToNumber = function(propName) {
 //	console.log(propBuffer);
 	return propBuffer.bufferedValueToNumber(propName);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+var CachedCSSPropertySetBuffer = (function() {
+	var packedCSSProperty, propertySetBuffer = new CSSPropertySetBuffer(new Uint8Array());
+	for (var attrGroup in CSSPropertyDescriptors.splitted) {
+		Object.keys(CSSPropertyDescriptors.splitted[attrGroup]).forEach(function(attrName) {
+//			console.log(attrName, CSSPropertyDescriptors.all[attrName].prototype.initialValue);
+			packedCSSProperty = new CSSPropertyBuffer(null, attrName);
+			packedCSSProperty.setValue(
+				parser.parseAListOfComponentValues(
+					CSSPropertyDescriptors.all[attrName].prototype.initialValue
+				)
+			);
+			propertySetBuffer.setPropFromBuffer(attrName, packedCSSProperty);
+		});
+		propertySetBuffer.setGroupIsInitialValue(attrGroup, true);
+	}
+	return propertySetBuffer;
+})()
 
 
 

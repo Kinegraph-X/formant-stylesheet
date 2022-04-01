@@ -24,7 +24,15 @@ var StyleRule = function(ruleIdx, rawRule) {
 	this.styleIFace = new Style(null, this.selector, this.getAttributes(rawRule));
 	this.attrIFace  = this.styleIFace.attrIFace;
 	this.additionalAttributes = {};
-	this.strRule = '';
+	this.strRule = this.attrIFace.linearize();
+}
+StyleRule.prototype = {};
+StyleRule.fromAdvancedStyleAttributes = function(ruleIdx, selector, attrIFace) {
+	var styleRule = new StyleRule(ruleIdx, {selector : selector});
+	styleRule.styleIFace.attrIFace = attrIFace;
+	styleRule.attrIFace = attrIFace;
+	styleRule.strRule = styleRule.attrIFace.linearize();
+	return styleRule;
 }
 
 StyleRule.prototype.getAttributes = function(rawRule) {
@@ -44,7 +52,7 @@ StyleRule.prototype.setAttributes = function(rawRule) {
 }
 
 StyleRule.prototype.cloneAttributes = function() {
-	return (new AdvancedAttributesList(this.attrIFace.getAllAttributes())).getAllAttributes();
+	return (new AdvancedAttributesList(this.attrIFace.getAllDefinedAttributes())).getAllDefinedAttributes();
 }
 
 StyleRule.prototype.populateStrRule = function() {
