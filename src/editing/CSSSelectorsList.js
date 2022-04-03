@@ -57,6 +57,19 @@ Object.defineProperty(CSSSelectorsList.prototype, 'optimizedSelectorBufferSchema
 	)
 });
 
+// UTILITY FUNCTIONS: to be used when matching the selectors
+CSSSelectorsList.prototype.DHLstr = function(DHL) {
+	var ret = '';
+	for (var i = 0, l = DHL; i < l; i++) {
+		ret += '	';
+	}
+	return ret;
+}
+
+CSSSelectorsList.prototype.localDebugLog = function() {
+	console.log.apply(null, Array.prototype.slice.call(arguments));
+}
+
 
 
 
@@ -171,7 +184,8 @@ Object.defineProperty(CSSSelectorComponentList.prototype, 'captureRelationship',
 //		else
 			splitted.forEach(function(rawComponent) {
 //				console.log(rawComponent);
-				this.push(new CSSSelectorComponent(rawComponent, leftSibbling));
+				if (!rawComponent.match(CSSSelectorComponent.prototype.typeIsCombinator))
+					this.push(new CSSSelectorComponent(rawComponent, leftSibbling));
 				leftSibbling = rawComponent;
 			}, this);
 	}
@@ -194,12 +208,13 @@ var CSSSelectorComponent = function(componentAsStr, leftSibbling) {
 	var match;
 	this.objectType = 'CSSSelectorComponent';
 	
-	this.value = ((match = componentAsStr.match(this.isolateValue)) && match[0]) || '';
+	this.value = componentAsStr;
 	this.type = this.getType(componentAsStr);
 	this.relation = this.getRelation(leftSibbling);
 	
-	this.compoundValue = this.getCompoundValues(componentAsStr);
-	this.isCompound = this.compoundValue.valuesCount > 1;
+	this.compoundValues = this.getCompoundValues(componentAsStr);
+//	console.log('this.compoundValues.valuesCount', componentAsStr, this.compoundValues.valuesCount)
+	this.isCompound = this.compoundValues.valuesCount > 1;
 	
 	this.hasPseudoClassFlag = this.getHasPseudoClass(componentAsStr) || 0;
 	this.pseudoClassType = (this.hasPseudoClassFlag && this.getPseudoClassConstant(componentAsStr)) || 0;
@@ -210,6 +225,7 @@ CSSSelectorComponent.prototype = {};
 CSSSelectorComponent.prototype.objectType = 'CSSSelectorComponent';
 
 // /\w/ matches on alphaNum AND underscore
+CSSSelectorComponent.prototype.typeIsCombinator = /[>~+]/;
 CSSSelectorComponent.prototype.typeIsUniversal = /^\*$/;
 CSSSelectorComponent.prototype.typeIsId = /^#(\w+)/;
 CSSSelectorComponent.prototype.typeIsClass = /^\.([\w-]+)|\[class.?="([\w-]+)"\]/;
@@ -217,11 +233,10 @@ CSSSelectorComponent.prototype.typeIsHost = /^:host/;
 CSSSelectorComponent.prototype.typeIsTag = /^[^\.#\:][\w-]+/;		// was [^\.#\:][-s\w_]+/
 
 CSSSelectorComponent.prototype.hasPseudoClass = /:[\w-]+/;
-CSSSelectorComponent.prototype.pseudoClassType = /:([\w-]+?)\(([\w+]+?)\)/;
+CSSSelectorComponent.prototype.pseudoClassType = /(.+?):([\w-]+?)\(([\w+]+?)\)(.+)?/;
 
 CSSSelectorComponent.prototype.getType = function(componentAsStr) {
-	// TODO: we have very few means to identify the case of an "attribute" qualifying a component
-	// TODO: Nor have we a good solution to bind an isolate "attribute" to a universal component
+	// TODO: this MUST return a value qualifying ONLY the first part of the selector (poorly tested till then)
 	if (this.typeIsId.test(componentAsStr))
 		return this.typeConstants.idType;
 	else if (this.typeIsClass.test(componentAsStr))
@@ -245,13 +260,17 @@ CSSSelectorComponent.prototype.getHasPseudoClass = function(componentAsStr) {
 CSSSelectorComponent.prototype.getPseudoClassConstant = function(componentAsStr) {
 	var match;
 	if ((match = componentAsStr.match(this.hasPseudoClass))) {
-		if ((match = componentAsStr.match(this.pseudoClassType)) && match.length === 3) {
-			return this.pseudoClassConstants[match[1].hyphensToDromedar() + match[2].capitalizeFirstChar()];
+		if ((match = componentAsStr.match(this.pseudoClassType)) && match.length >= 4) {
+			this.isCompound = true;
+			var newComponentAsStr = match[1] + (match[4] || '');
+//			console.log(newComponentAsStr);
+			this.compoundValues = this.getCompoundValues(newComponentAsStr);
+//			console.log(match);
+			return this.pseudoClassConstants[match[2].hyphensToDromedar() + match[3].capitalizeFirstChar()];
 		}
 		else
 			return this.pseudoClassConstants['unknown'];
 	}
-		
 	else
 		return this.pseudoClassConstants['unknown'];
 }
@@ -273,34 +292,19 @@ CSSSelectorComponent.prototype.getRelation = function(leftSibbling) {
 	}
 }
 
-//CSSSelectorComponent.prototype.isCompoundComponent = function(selectorAsStr) {
-//	var idPart, classPart = '', tagPart, classesParts, tmpPart;
-//	
-//	idPart = (idPart = selectorAsStr.split('#')).length > 1 && (((idPart[1].split('.')).length > 1 && idPart[1].split('.')[0]) || (idPart[1] || ''));
-//	
-//	classesParts = selectorAsStr.split('.');
-//	classesParts.forEach(function(classFrag, key) {
-//		if (key === 0)
-//			return;
-//		classPart += '.' + (((classFrag.split('#')).length > 1 && classFrag.split('#')[0]) || classFrag);
-//	}, this);
-//	
-//	tagPart = ((tmpPart = selectorAsStr.split('#')).length > 1 && ((tmpPart = tmpPart[0].split('.')).length > 1 && tmpPart[0]) || selectorAsStr.split('#')[0]) || selectorAsStr.split('.')[0];
-//}
-
 CSSSelectorComponent.prototype.getCompoundValues = function(selectorAsStr) {
 	var classPart1, classPart2;
 	var splittedOnId = selectorAsStr.split('#');
-	var tagPart = ((classPart1 = splittedOnId[0].split('.')).length > 1 && classPart1.shift()) || splittedOnId[0];
-	var idPart = splittedOnId.length > 1 && (classPart2 = splittedOnId[1].split('.')).shift();
-	var classPart = classPart1.concat(classPart2);
-	
-	return (new CSSSelectorComponentValues(tagPart, idPart, classPart));
+	var tagPart = (classPart1 = splittedOnId[0].split('.')) && classPart1.shift();
+	var idPart = (splittedOnId.length > 1 && (classPart2 = splittedOnId[1].split('.')).shift());
+	var classPart = classPart2 ? classPart1.concat(classPart2) : classPart1;
+
+	return (new CSSSelectorComponentValues(selectorAsStr, tagPart, idPart, classPart));
 }
 
-CSSSelectorComponent.prototype.getSpecificity = function(selectorAsStr) {
-	
-}
+//CSSSelectorComponent.prototype.getSpecificity = function(compoundSelector) {
+//	
+//}
 
 CSSSelectorComponent.prototype.isValidComponent = function(leftSibbling) {
 	// HACK: could we really rely on the fact that a component
@@ -334,16 +338,16 @@ CSSSelectorComponent.prototype.relationConstants = {
 
 CSSSelectorComponent.prototype.pseudoClassConstants = {
 	unknown : 0,
-	odd : 1,
-	even : 2,
-	firstChild : 3,
-	lastChild : 4,
-	nthChildOdd : 5,
-	nthChildEven : 6,
-	nthChildANpB : 7,
+	firstChild : 1,
+	lastChild : 2,
+	nthChildOdd : 3,
+	nthChildEven : 4,
+	nthChildANpB : 5,
 }
 
-CSSSelectorComponent.prototype.splitter = /,|\s/;
+CSSSelectorComponent.prototype.splitter = /\s/;
+CSSSelectorComponent.prototype.hostPseudoFunction = /^(:host)\((.+?)\)/;
+CSSSelectorComponent.prototype.attributesComponent = /^(\w+?)\[(\w+?)([=~^]+?)(.+?)\]/;
 
 CSSSelectorComponent.prototype.shadowDOMHostSpecialKeyword = ':host';
 
@@ -355,18 +359,95 @@ CSSSelectorComponent.prototype.shadowDOMHostSpecialKeyword = ':host';
 
 
 
+var CSSSelectorComponentValuesCounter = 0;
 
-
-var CSSSelectorComponentValues = function(tagPart, idPart, classPart) {
+var CSSSelectorComponentValues = function(completeSelector, tagPart, idPart, classPart) {
+	// FIXME: this.isolateAttributesSelectors won't support the case where we must match on 'startwith', 'includes', 'endWith'
+	// ALSO: we haven't yet really implemented all the cases
+	
 	this.objectType = '';
-	this.tagPart = tagPart;						// String
-	this.idPart = idPart;						// String
-	this.classPart = classPart;					// Array
-	this.valuesCount = +(tagPart.length > 0) + +(idPart.length > 0) + +(classPart.length > 0 && classPart.length);
+	this.idPart = ''; this.classPart = []; this.tagPart = ''; this.namePart = '';
+	this.idPart = this.isolateAttributesSelectors(idPart || '');			// String
+	this.classPart = this.isolateAttributesSelectors(classPart || []);		// Array
+	this.tagPart = this.isolateHostPseudoFunction(
+			this.isolateAttributesSelectors(completeSelector || ''),
+			tagPart
+		);																	// String
+//	console.error(++CSSSelectorComponentValuesCounter, 'CSSSelectorComponentValues', this.tagPart, this.idPart, this.classPart);
+	
+	this.valuesCount = +(tagPart.length > 0) + (+(idPart.length > 0)) + (+(classPart.length > 0 && classPart.length));
 	this.specificity = this.getSpecificity();
 }
 CSSSelectorComponentValues.prototype = {};
 CSSSelectorComponentValues.prototype.objectType = 'CSSSelectorComponentValues';
+
+CSSSelectorComponentValues.prototype.isolateHostPseudoFunction = function(completeSelector, tagPart) {
+	var pseudoFunction, tmpCapture;
+	if ((pseudoFunction = completeSelector.match(CSSSelectorComponent.prototype.hostPseudoFunction))) {
+		// WARNING: There's a risky recursion here, but this code seems to handle that correctly
+		tmpCapture = CSSSelectorComponent.prototype.getCompoundValues(pseudoFunction[2]);
+		this.classPart = tmpCapture.classPart;
+		this.idPart = tmpCapture.idPart;
+		return pseudoFunction[1];
+	}
+	return tagPart;
+}
+
+CSSSelectorComponentValues.prototype.isolateAttributesSelectors = function(componentPart) {
+	// We assume it's worth coding an optimization on the "attributes" selector:
+	// 	=> if the attribute targets a class or an id with the "stricly equals" operator, we convert that "attribute" component
+	var attribute, tmpCapture;
+	// Case of the class part
+	if (Array.isArray(componentPart) && componentPart.length > 0) {
+		var indexesToRemove = [];
+		// Due to the simplicity of our splitter, there may be an attribute part
+		// on each classPart element:
+		// 		=> try to match each time and store immediatly the modified classPart element
+		// 		=> then, remove these classPart elements before merging the two arrays
+		componentPart.forEach(function(classFragment, key) {
+			if ((attribute = classFragment.match(CSSSelectorComponent.prototype.attributesComponent))) {
+				// FIXME: matcher is not used => see constructor
+				var type = attribute[2], matcher = attribute[3], target = attribute[4];
+				
+				// TODO: implement the other attributes
+				if (type === 'class') {
+					this.classPart.push(target);
+					indexesToRemove.push(key);
+				}
+				else if (type === 'id')
+					this.idPart = target;
+				else if (name === 'name')
+					this.namePart = target;
+				
+				this.classPart.push(attribute[1])	
+			}
+		}, this);
+		for (var i = componentPart.length - 1; i >= 0; i--) {
+			if (indexesToRemove.indexOf(i) !== -1)
+				componentPart.splice(i, 1);
+		}
+		return this.classPart.concat(componentPart);
+	}
+	// other cases
+	else if (componentPart.length) {
+		if ((attribute = componentPart.match(CSSSelectorComponent.prototype.attributesComponent))) {
+			// FIXME: matcher is not used => see constructor
+			var type = attribute[2], matcher = attribute[3], target = attribute[4];
+			
+			// TODO: implement the other attributes
+			if (type === 'class')
+				this.classPart.push(target);
+			else if (type === 'id')
+				this.idPart = target;
+			else if (name === 'name')
+				this.namePart = target;
+				
+			return attribute[1];
+		}
+		return componentPart;
+	}
+	return componentPart;
+}
 
 CSSSelectorComponentValues.prototype.getSpecificity = function() {
 	
