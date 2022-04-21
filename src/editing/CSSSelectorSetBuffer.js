@@ -65,10 +65,10 @@ CSSSelectorSetBuffer.prototype.addEntryFromBuffer = function(entryName, selector
 
 CSSSelectorSetBuffer.prototype.populateFromSelectorsList = function(selectorsList) {
 	var substrDef, bufferUIDforList = GeneratorFor16bitsInt.newUID();
-//	console.log(selectorsList);
+//	console.log(bufferUIDforList);
 	selectorsList.forEach(function(selector) {
-		// TAKE CARE OF PERF: we optimized the String.prototype.getNCharAsCharCodes method to get 3 chars most of the time,
-		// 		and then we only match on the first char. It's a fail-fast strategy.
+		// TAKE CARE OF PERF: Our fail-fast strategy: we optimized the String.prototype.getNCharAsCharCodes method to get 3 chars most of the time,
+		// 		and then we only match on the first char.
 		
 		// We're matching insensitive to case: eg https://www.w3.org/TR/2011/REC-CSS2-20110607/syndata.html#characters
 		// 		=> "All CSS syntax is case-insensitive within the ASCII range."

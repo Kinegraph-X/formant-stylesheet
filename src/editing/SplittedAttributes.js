@@ -11,7 +11,7 @@ var CSSPropertyBuffer = require('src/editing/CSSPropertyBuffer');
 var BinarySlice = require('src/core/BinarySlice');
 var CSSPropertyDescriptors = require('src/editing/CSSPropertyDescriptors');
 var CSSPropertySetBuffer = require('src/editing/CSSPropertySetBuffer');
-var parser = require('src/parsers/css-parser_forked');
+var parser = require('src/parsers/css-parser_forked_normalized');
 
 
 /**
@@ -259,7 +259,7 @@ Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'disambiguateAt
 				}
 				packedCSSProperty = new CSSPropertyBuffer(null, attrName);
 				packedCSSProperty.setValue(
-					parser.parseAListOfComponentValues(attributes[attrName])
+					attributes[attrName]
 				);
 				// Set the isInitialValue flag to false
 				packedCSSProperty._buffer.set([0], CSSPropertyBuffer.prototype.bufferSchema.isInitialValue.start);

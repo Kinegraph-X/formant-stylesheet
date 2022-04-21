@@ -14,22 +14,31 @@ var CSSSelectorsList = function(selectorAsStr) {
 	Object.defineProperty(this, 'objectType', {value : 'CSSSelectorsList'});
 	var selectorsList;
 	
-	if (selectorAsStr.match(/,/))
-		selectorsList = selectorAsStr.match(/.+?,\s?/g);
-	else
-		selectorsList = [selectorAsStr];
-		
-	if (selectorsList === null) {
-		console.warn('CSSSelectorsList: no actual selector could be identified. selectorAsStr is "' + selectorAsStr + '"');
-		return;
+	if (selectorAsStr.match(/,/)) {
+		selectorsList = selectorAsStr.split(/,\s/);
+		if (selectorsList === null) {
+			console.warn('CSSSelectorsList: no actual selector could be identified. selectorAsStr is "' + selectorAsStr + '"');
+			return;
+		}
+		selectorsList.forEach(function(selector){
+			this.push(new CSSSelector(selector));
+		}, this);
 	}
-	
-	selectorsList.forEach(function(selector) {
-		this.push(new CSSSelector(selector));
-	}, this);
+	else
+		this.push(new CSSSelector(selectorAsStr));
+
+	Object.defineProperty(CSSSelectorsList.prototype, 'maxSpecificity', {
+		value : this.getMaxSpecificity()
+	});
 }
 CSSSelectorsList.prototype = Object.create(Array.prototype);
 CSSSelectorsList.prototype.objectType = 'CSSSelectorsList';
+
+Object.defineProperty(CSSSelectorsList.prototype, 'getMaxSpecificity', {
+	value : function() {
+		
+	}
+});
 
 Object.defineProperty(CSSSelectorsList.prototype, 'optimizedSelectorBufferSchema', {
 	value : BinarySchemaFactory(
@@ -67,7 +76,7 @@ CSSSelectorsList.prototype.DHLstr = function(DHL) {
 }
 
 CSSSelectorsList.prototype.localDebugLog = function() {
-	console.log.apply(null, Array.prototype.slice.call(arguments));
+//	console.log.apply(null, Array.prototype.slice.call(arguments));
 }
 
 
@@ -84,8 +93,10 @@ var CSSSelector = function(selectorAsStr) {
 	this.components = new CSSSelectorComponentList();	// Dummy object to avoid hidden-class transition
 	this.selectorProofingPartType = 0;
 	this.rightMost = this.extractMostSpecificPartFromSelector();
+//	console.log(this.rightMost);
 	this.rightMostHasPseudoClassFlag = this.components[this.components.length - 1].hasPseudoClassFlag;
 	this.rightMostPseudoClassType = this.components[this.components.length - 1].pseudoClassType;
+	this.specificity = this.getSpecificity();
 }
 CSSSelector.prototype = {};
 CSSSelector.prototype.objectType = 'CSSSelector';
@@ -96,12 +107,13 @@ CSSSelector.prototype.toString = function() {
 
 CSSSelector.prototype.extractMostSpecificPartFromSelector = function() {
 	this.components = new CSSSelectorComponentList(this.selectorStr);
+	this.specificity = this.components.specificity;
 	return this.cascadeOnSpecificity(this.components[this.components.length - 1].value);
 }
 
 CSSSelector.prototype.cascadeOnSpecificity = function(rightMost) {
 	var match;
-	
+//	console.log(rightMost);
 //	(rightMost === ':host' && console.log(rightMost, match));
 	match = rightMost.match(this.typeIsId);
 
@@ -137,6 +149,10 @@ CSSSelector.prototype.cascadeOnSpecificity = function(rightMost) {
 	return rightMost;
 }
 
+CSSSelector.prototype.getSpecificity = function(selectorAsStr) {
+	return this.components.specificity;
+}
+
 CSSSelector.prototype.constants = {
 	rawSelectorIsProof : 0,
 	idIsProof : 1,
@@ -162,7 +178,13 @@ CSSSelector.prototype.constants = {
 var CSSSelectorComponentList = function(selectorAsStr) {
 	if (!selectorAsStr)
 		return;
+		
 	this.captureRelationship(selectorAsStr);
+	
+	Object.defineProperty(this, 'specificity', {
+		value : this.getSpecificity()
+	});
+	 
 	if (!this.length)
 		console.warn('CSSSelectorComponentList:', 'selectorAsStr => [' + selectorAsStr + ']', 'instanciation of the CSSSelectorComponentList failed.')
 }
@@ -172,22 +194,27 @@ Object.defineProperty(CSSSelectorComponentList.prototype, 'objectType', {
 	value : 'CSSSelectorComponentList'
 });
 
+Object.defineProperty(CSSSelectorComponentList.prototype, 'getSpecificity', {
+	value : function() {
+		var specificity = 0;
+		this.forEach(function(component) {
+			specificity += component.getSpecificity();
+		}, this);
+		return specificity;
+	}
+});
+
 Object.defineProperty(CSSSelectorComponentList.prototype, 'captureRelationship', {
 	value : function(selectorAsStr) {
-		// FIXME: if we encounter a coma, that's a list of identical rules
-		// CURRENTLY NOT SUPPORTED
+		// TODO: Ensure we can't encounter a coma here, that would be a list of selectors
 		var leftSibbling;
 		var splitted = selectorAsStr.trim().split(CSSSelectorComponent.prototype.splitter);
 		
-//		if (!Array.isArray(splitted))
-//			this.push(new CSSSelectorComponent(selectorAsStr));
-//		else
-			splitted.forEach(function(rawComponent) {
-//				console.log(rawComponent);
-				if (!rawComponent.match(CSSSelectorComponent.prototype.typeIsCombinator))
-					this.push(new CSSSelectorComponent(rawComponent, leftSibbling));
-				leftSibbling = rawComponent;
-			}, this);
+		splitted.forEach(function(rawComponent) {
+			if (!rawComponent.match(CSSSelectorComponent.prototype.typeIsCombinator))
+				this.push(new CSSSelectorComponent(rawComponent, leftSibbling));
+			leftSibbling = rawComponent;
+		}, this);
 	}
 });
 
@@ -213,34 +240,47 @@ var CSSSelectorComponent = function(componentAsStr, leftSibbling) {
 	this.relation = this.getRelation(leftSibbling);
 	
 	this.compoundValues = this.getCompoundValues(componentAsStr);
-//	console.log('this.compoundValues.valuesCount', componentAsStr, this.compoundValues.valuesCount)
 	this.isCompound = this.compoundValues.valuesCount > 1;
 	
+	// FIXME: this code does not support having multiple pseudo-classes
 	this.hasPseudoClassFlag = this.getHasPseudoClass(componentAsStr) || 0;
+	this.pseudoClassMicroSyntax = [];
 	this.pseudoClassType = (this.hasPseudoClassFlag && this.getPseudoClassConstant(componentAsStr)) || 0;
+	
+	this.hasAttributesFlag = this.getHasAttributes(componentAsStr) || 0;
 	
 	return (this.type && this.relation) || undefined;
 }
 CSSSelectorComponent.prototype = {};
 CSSSelectorComponent.prototype.objectType = 'CSSSelectorComponent';
 
+CSSSelectorComponent.prototype.splitter = /\s/;
+CSSSelectorComponent.prototype.hostPseudoFunction = /^(:host)\((.+?)\)/;
+CSSSelectorComponent.prototype.attributesComponent = /^(\w+?)\[(\w+?)([=~^]+?)(.+?)\]/;
+
+CSSSelectorComponent.prototype.shadowDOMHostSpecialKeyword = ':host';
+
 // /\w/ matches on alphaNum AND underscore
-CSSSelectorComponent.prototype.typeIsCombinator = /[>~+]/;
+CSSSelectorComponent.prototype.typeIsCombinator = /^[>~+]/;
 CSSSelectorComponent.prototype.typeIsUniversal = /^\*$/;
 CSSSelectorComponent.prototype.typeIsId = /^#(\w+)/;
 CSSSelectorComponent.prototype.typeIsClass = /^\.([\w-]+)|\[class.?="([\w-]+)"\]/;
+CSSSelectorComponent.prototype.typeIsAttribute = CSSSelectorComponent.prototype.attributesComponent;
 CSSSelectorComponent.prototype.typeIsHost = /^:host/;
 CSSSelectorComponent.prototype.typeIsTag = /^[^\.#\:][\w-]+/;		// was [^\.#\:][-s\w_]+/
 
-CSSSelectorComponent.prototype.hasPseudoClass = /:[\w-]+/;
-CSSSelectorComponent.prototype.pseudoClassType = /(.+?):([\w-]+?)\(([\w+]+?)\)(.+)?/;
+CSSSelectorComponent.prototype.hasPseudoClass = /(?<=[^:]):[\w-]+/;
+CSSSelectorComponent.prototype.pseudoClassTypeFormat = /(.+?):([\w-]+?)\(([\wn+-]+?)\)(.+)?/;
+CSSSelectorComponent.prototype.pseudoClassMicroSyntaxFormat = /(-?[0-9]n\s?)?\s?([+-]?\s?(-?[0-9]*))?/;
 
 CSSSelectorComponent.prototype.getType = function(componentAsStr) {
-	// TODO: this MUST return a value qualifying ONLY the first part of the selector (poorly tested till then)
+	// TODO: this MUST return a value qualifying ONLY the first part of the component (poorly tested till then)
 	if (this.typeIsId.test(componentAsStr))
 		return this.typeConstants.idType;
 	else if (this.typeIsClass.test(componentAsStr))
 		return this.typeConstants.classType;
+	else if (this.typeIsAttribute.test(componentAsStr))
+		return this.typeConstants.attributeType;
 	else if (this.typeIsTag.test(componentAsStr))
 		return this.typeConstants.tagType;
 	else if (this.typeIsHost.test(componentAsStr))
@@ -254,22 +294,30 @@ CSSSelectorComponent.prototype.getType = function(componentAsStr) {
 }
 
 CSSSelectorComponent.prototype.getHasPseudoClass = function(componentAsStr) {
+//	console.log(componentAsStr);
 	return +(this.hasPseudoClass.test(componentAsStr) && !this.typeIsHost.test(componentAsStr));
+}
+
+CSSSelectorComponent.prototype.getHasAttributes = function(componentAsStr) {
+//	console.log(componentAsStr);
+	return this.attributesComponent.test(componentAsStr);
 }
 
 CSSSelectorComponent.prototype.getPseudoClassConstant = function(componentAsStr) {
 	var match;
-	if ((match = componentAsStr.match(this.hasPseudoClass))) {
-		if ((match = componentAsStr.match(this.pseudoClassType)) && match.length >= 4) {
-			this.isCompound = true;
-			var newComponentAsStr = match[1] + (match[4] || '');
-//			console.log(newComponentAsStr);
-			this.compoundValues = this.getCompoundValues(newComponentAsStr);
-//			console.log(match);
-			return this.pseudoClassConstants[match[2].hyphensToDromedar() + match[3].capitalizeFirstChar()];
+
+	if ((match = componentAsStr.match(this.pseudoClassTypeFormat)) && match.length >= 4) {
+		this.isCompound = true;
+		var newComponentAsStr = match[1] + (match[4] || '');
+		this.compoundValues = this.getCompoundValues(newComponentAsStr);
+		
+		var microSyntax;
+		if ((microSyntax = match[3].match(this.pseudoClassMicroSyntaxFormat))) {
+			this.pseudoClassMicroSyntax = [microSyntax[1] ? parseInt(microSyntax[1].slice(0, -1)) : 0, microSyntax[3] ? parseInt(microSyntax[3]) : 0];
+			return this.pseudoClassConstants[match[2].hyphensToDromedar() + 'ANpB'];
 		}
-		else
-			return this.pseudoClassConstants['unknown'];
+		
+		return this.pseudoClassConstants[match[2].hyphensToDromedar() + match[3].capitalizeFirstChar()];
 	}
 	else
 		return this.pseudoClassConstants['unknown'];
@@ -302,9 +350,30 @@ CSSSelectorComponent.prototype.getCompoundValues = function(selectorAsStr) {
 	return (new CSSSelectorComponentValues(selectorAsStr, tagPart, idPart, classPart));
 }
 
-//CSSSelectorComponent.prototype.getSpecificity = function(compoundSelector) {
-//	
-//}
+CSSSelectorComponent.prototype.getSpecificity = function() {
+	var simpleSpecificity, compoundSpecificity;
+	if (this.isCompound) {
+		compoundSpecificity = this.compoundValues.getSpecificity();
+		// FIXME: There may be multiple pseudo-classes
+		if (this.hasPseudoClassFlag)
+			return compoundSpecificity | (1 << 8)
+		else
+			return compoundSpecificity;
+	}
+	else {
+		if (this.type === this.typeConstants.idType)
+			simpleSpecificity = 1 << 16;
+		if (this.type === this.typeConstants.classType || this.type === this.typeConstants.attributeType)
+			simpleSpecificity = 1 << 8;
+		if (this.type === this.typeConstants.tagType || this.type === this.typeConstants.hostType)
+			simpleSpecificity = 1;
+		// FIXME: There may be multiple pseudo-classes
+		if (this.hasPseudoClassFlag)
+			return simpleSpecificity | (1 << 8)
+		else
+			return simpleSpecificity;
+	}
+}
 
 CSSSelectorComponent.prototype.isValidComponent = function(leftSibbling) {
 	// HACK: could we really rely on the fact that a component
@@ -323,8 +392,9 @@ CSSSelectorComponent.prototype.typeConstants = {
 	universalType : 1,
 	idType : 2,
 	classType : 3,
-	tagType : 4,
-	hostType : 5
+	attributeType : 4,
+	tagType : 5,
+	hostType : 6
 }
 
 CSSSelectorComponent.prototype.relationConstants = {
@@ -345,11 +415,7 @@ CSSSelectorComponent.prototype.pseudoClassConstants = {
 	nthChildANpB : 5,
 }
 
-CSSSelectorComponent.prototype.splitter = /\s/;
-CSSSelectorComponent.prototype.hostPseudoFunction = /^(:host)\((.+?)\)/;
-CSSSelectorComponent.prototype.attributesComponent = /^(\w+?)\[(\w+?)([=~^]+?)(.+?)\]/;
 
-CSSSelectorComponent.prototype.shadowDOMHostSpecialKeyword = ':host';
 
 
 
@@ -373,7 +439,7 @@ var CSSSelectorComponentValues = function(completeSelector, tagPart, idPart, cla
 			this.isolateAttributesSelectors(completeSelector || ''),
 			tagPart
 		);																	// String
-//	console.error(++CSSSelectorComponentValuesCounter, 'CSSSelectorComponentValues', this.tagPart, this.idPart, this.classPart);
+	this.attributesPart = new SelectorComponentAttributesValues();			// Map (SelectorComponentAttributesValues)
 	
 	this.valuesCount = +(tagPart.length > 0) + (+(idPart.length > 0)) + (+(classPart.length > 0 && classPart.length));
 	this.specificity = this.getSpecificity();
@@ -417,7 +483,13 @@ CSSSelectorComponentValues.prototype.isolateAttributesSelectors = function(compo
 				else if (type === 'id')
 					this.idPart = target;
 				else if (name === 'name')
-					this.namePart = target;
+					this.attributesPart.set('name', target);
+				else if (name === 'checked')
+					this.attributesPart.set('checked', target);
+				else if (name === 'valid')
+					this.attributesPart.set('valid', target);
+				else if (name === 'selected')
+					this.attributesPart.set('selected', target);
 				
 				this.classPart.push(attribute[1])	
 			}
@@ -440,7 +512,13 @@ CSSSelectorComponentValues.prototype.isolateAttributesSelectors = function(compo
 			else if (type === 'id')
 				this.idPart = target;
 			else if (name === 'name')
-				this.namePart = target;
+				this.attributesPart.set('name', target);
+			else if (name === 'checked')
+				this.attributesPart.set('checked', target);
+			else if (name === 'valid')
+				this.attributesPart.set('valid', target);
+			else if (name === 'selected')
+				this.attributesPart.set('selected', target);
 				
 			return attribute[1];
 		}
@@ -450,8 +528,57 @@ CSSSelectorComponentValues.prototype.isolateAttributesSelectors = function(compo
 }
 
 CSSSelectorComponentValues.prototype.getSpecificity = function() {
+	var A = 0, B = 0, C = 0;
 	
+	A = +(this.idPart.length > 0);
+	B = this.classPart.length + this.attributesPart.valuesCount;
+	C = +(this.tagPart.length > 0);
+//	console.log('A', A, 'B', B, 'C', C);
+//	console.log('ABC', (A << 16) | (B << 8) | (C));
+	return (A << 16) | (B << 8) | (C)
 }
+
+
+
+
+
+
+
+
+
+
+
+
+var SelectorComponentAttributesValues = function() {
+	this.name = '';
+	this.checked = '';
+	this.valid = '';
+	this.selected = '';
+	
+	Object.defineProperty(this, 'valuesCount', {value : 0});
+}
+SelectorComponentAttributesValues.prototype = {};
+Object.defineProperty(SelectorComponentAttributesValues.prototype, 'objectType', {value : 'SelectorComponentAttributesValues'});
+
+Object.defineProperty(SelectorComponentAttributesValues.prototype, 'set', {
+	value : function(attrName, attrValue) {
+				this[attrName] = attrValue;
+				this.countValues();
+			}
+});
+Object.defineProperty(SelectorComponentAttributesValues.prototype, 'countValues', {
+	value : function() {
+		this.valuesCount = 0;
+		for (var attrName in this) {
+			if (this[attrName].length)
+				this.valuesCount++;
+		}
+	}
+});
+
+
+
+
 
 
 

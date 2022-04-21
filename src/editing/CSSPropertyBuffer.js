@@ -7,9 +7,9 @@
 var BinarySchemaFactory = require('src/core/BinarySchema');
 var GeneratorFor16bitsInt = require('src/core/UIDGenerator').GeneratorFor16bitsInt;
 //var CSSPropertyDescriptors = require('src/editing/CSSPropertyDescriptors');
-var parser = require('src/parsers/css-parser_forked');
+var parser = require('src/parsers/css-parser_forked_normalized');
 
-var CSSPropertyBuffer = function(initialLoad, propName) {
+var CSSPropertyBuffer = function(initialLoad) {
 	this.objectType = 'CSSPropertyBuffer';
 	this._buffer = new Uint8Array(initialLoad || this.bufferSchema.size);
 	
@@ -29,10 +29,16 @@ var CSSPropertyBuffer = function(initialLoad, propName) {
 CSSPropertyBuffer.prototype = {};
 CSSPropertyBuffer.prototype.objectType = 'CSSPropertyBuffer';
 
-CSSPropertyBuffer.prototype.setValue = function(parsedValue) {
+CSSPropertyBuffer.prototype.setValue = function(value) {
+	
+//	if (/\s/.test(value))
+//		parsedValue = parser.parseAListOfComponentValues(value);
+//	else
+//		parsedValue = [value];
+//	console.log('setValue', value);
 	// For now, we haven't yet populated the initlaValue for each CSSPropertyDescriptor.
 	// So this function is very frequently called with an empty array
-	if (!parsedValue.length)
+	if (!value.length)
 		return;
 	
 	var valueAsParsed, tokenType, concatVal;
@@ -41,17 +47,23 @@ CSSPropertyBuffer.prototype.setValue = function(parsedValue) {
 	// => shorthands are then handled (expanded) in CSSPropertySetBuffer.setPropFromShorthand()
 	// => abbreviated props are also handled (in a branch) of CSSPropertySetBuffer.setPropFromShorthand()
 	
-	if (parsedValue.length === 1) {
+	if (!/\s/.test(value.trim()) || /[\(\)]/.test(value.trim())) {
+		var parsedValue = parser.parseAListOfComponentValues(value.trim());
+		if (!parsedValue.length)
+			return;
+		if (Object.getPrototypeOf(parsedValue[0]).tokenType === 'WHITESPACE')
+			console.log(parsedValue);
 		tokenType = Object.getPrototypeOf(parsedValue[0]).tokenType.capitalizeFirstChar() + 'Token';
 //		console.log(tokenType);
 		if (tokenType === 'FunctionToken')
 			valueAsParsed = this.functionToCanonical(parsedValue[0]);
 		else
-			valueAsParsed = this.fixValueFromParser(parsedValue[0]);
+			valueAsParsed = parsedValue[0]; //this.fixValueFromParser(parsedValue[0]);
 //		console.log(valueAsParsed);
 	}
-	else if (parsedValue.length > 1){
-		concatVal = this.concatenateBackFromParser(parsedValue);
+	else {
+//		concatVal = this.concatenateBackFromParser(parsedValue);
+		concatVal = value.trim();
 		tokenType = 'NonparsedToken';
 		
 		// Concatenated values are typed as "Non Parsed",
@@ -104,8 +116,9 @@ CSSPropertyBuffer.prototype.populate = function(tokenType, value) {
 	// 16 bits values have to be declared as byte-tuples ([1, 0] would then represent 1, as all CPU's are now little-endian) 
 	// (GeneratorFor16bitsInt, responsible for the UID, shall return an array)
 	
-	var normalizedValue = this.fixValueFromParser(value);
-	
+	var normalizedValue = value;//this.fixValueFromParser(value);
+	if (typeof normalizedValue.repr === 'undefined')
+		console.error('normalizedValue', normalizedValue);
 	var strVal = normalizedValue.repr,
 		strLength = strVal.length,
 		strBuf = strVal.getNcharsAsCharCodesArray(this.stdStrLength, 0)[1],
@@ -142,8 +155,8 @@ CSSPropertyBuffer.prototype.populate = function(tokenType, value) {
 		this.bufferSchema.reprLength.start
 	);
 	// unit
-//	if (!this.Units[value.unit])
-//		console.log(value.unit);
+	if (!this.Units[value.unit])
+		console.log('value.unit', value.unit);
 	this._buffer.set(
 			[value.unit ? this.Units[value.unit].idx : 0],
 			this.bufferSchema.unit.start
@@ -204,6 +217,34 @@ CSSPropertyBuffer.prototype.concatenateBackFromParser = function(parsedValue) {
 	return concatVal;
 }
 
+CSSPropertyBuffer.prototype.getIsInitialValue = function(bool) {
+	return this._buffer[this.bufferSchema.isInitialValue.start];
+}
+
+CSSPropertyBuffer.prototype.getIsInitialValueAsBool = function(bool) {
+	return !!this._buffer[this.bufferSchema.isInitialValue.start];
+}
+
+CSSPropertyBuffer.prototype.setIsInitialValue = function(bool) {
+	this._buffer.set([1], this.bufferSchema.isInitialValue.start);
+}
+
+CSSPropertyBuffer.prototype.tokenTypeToString = function(bool) {
+	return Object.keys(this.TokenTypes)[this._buffer[this.bufferSchema['tokenType'].start]];
+}
+
+CSSPropertyBuffer.prototype.tokenTypeToNumber = function(bool) {
+	return this._buffer[this.bufferSchema['tokenType'].start];
+}
+
+CSSPropertyBuffer.prototype.getUnitAsString = function() {
+	return this.unitToString();
+}
+
+CSSPropertyBuffer.prototype.unitToString = function() {
+	return this.UnitsAsArray[this._buffer[this.bufferSchema['unit'].start]];
+}
+
 // getValueAsString() is an alias for bufferedValueToString()
 // TODO: unify
 CSSPropertyBuffer.prototype.getValueAsString = function() {
@@ -216,23 +257,13 @@ CSSPropertyBuffer.prototype.getValueAsNumber = function() {
 	return this.bufferedValueToNumber();
 }
 
-CSSPropertyBuffer.prototype.typedArrayToString = function(tArray, strLength) {
-	return tArray.bufferToString(strLength);
-}
-
-CSSPropertyBuffer.prototype.setIsInitialValue = function(bool) {
-	this._buffer.set([1], this.bufferSchema.isInitialValue.start);
-}
-
 // bufferedValueToString() is an alias for getValueAsString()
 // TODO: unify
 CSSPropertyBuffer.prototype.bufferedValueToString = function() {
 	var start = this.bufferSchema['repr'].start, end = start + this.bufferSchema['repr'].length,
 		strLengthIdx = this.bufferSchema['reprLength'].start;
-	return this.typedArrayToString(
-			this._buffer.slice(start, end).buffer,
-			this._buffer[strLengthIdx]
-		);
+//	console.log(start, end, this._buffer.slice(start, end));
+	return this._buffer.slice(start, end).bufferToString(this._buffer[strLengthIdx]);
 }
 
 // bufferedValueToNumber() is an alias for getValueAsNumber()
@@ -243,8 +274,7 @@ CSSPropertyBuffer.prototype.bufferedValueToNumber = function() {
 }
 
 CSSPropertyBuffer.prototype.byteTuppleTo16bits = function(bytesInt8Array) {
-	var res = bytesInt8Array[1] << 8;
-	return (res || bytesInt8Array[0]);
+	return GeneratorFor16bitsInt.numberFromInt(bytesInt8Array);
 }
 
 
@@ -368,7 +398,7 @@ Object.defineProperty(CSSPropertyBuffer.prototype, 'TokenTypes', {
 });
 
 Object.defineProperty(CSSPropertyBuffer.prototype, 'stdStrLength', {
-	value : 58
+	value : 57
 });
 
 Object.defineProperty(CSSPropertyBuffer.prototype, 'ValueTypes', {
@@ -435,8 +465,8 @@ Object.defineProperty(CSSPropertyBuffer.prototype, 'Units', {
 		},
 		em : {
 			idx : 8,
-			unit : 'size of the uppercase M',
-			fullName : 'root em',
+			unit : 'em',
+			fullName : 'size of the uppercase M',
 			equivStr : '1em is equivalent to the inherited font-size'
 		},
 		rem : {
@@ -445,13 +475,29 @@ Object.defineProperty(CSSPropertyBuffer.prototype, 'Units', {
 			fullName : 'root em',
 			equivStr : '1rem is equivalent to the root element\'s font-size'
 		},
-		s : {
+		fr : {
 			idx : 10,
+			unit : 'fr',
+			fullName : 'flex grid unit',
+			equivStr : 'flexibility factor of a grid track'
+		},
+		s : {
+			idx : 11,
 			unit : 's',
 			fullName : 'seconds',
 			equivStr : 'seconds are used when defining the duration of an animation'
 		}
 	}
+});
+
+Object.defineProperty(CSSPropertyBuffer.prototype, 'UnitsAsArray', {
+	value : (function() {
+		var ret = [];
+		for (var unitDef in CSSPropertyBuffer.prototype.Units)  {
+			ret.push(CSSPropertyBuffer.prototype.Units[unitDef].unit)
+		}
+		return ret;
+	})()
 });
 
 

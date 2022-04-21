@@ -29,19 +29,27 @@ var Style = function(type, selector, attributes) {
 	this.attrIFace = new AdvancedAttributesList(this.type, attributes);
 	
 	// Populate the masterStyleRegistry, from which we shall later retrieve
-	// the -not- optimized part (for now, as we need the selector in the CSSSelectorMatcherRefiner)
-	// of the style object, i.e the current CSS rule
-	TypeManager.masterStyleRegistry.setItem(
-			
+	// the optimized part of the style object, i.e the current CSS rule
+	this.selectorsList.forEach(function(currentSelector) {
+//		console.log(this.compactedViewOnSelectorsList.getEntry(
+//				currentSelector.selectorStr
+//				// we unpack 16 and 32 bits integers in the CSSCompactedSelector type (in fact it's a MemorySingleBuffer)
+//				).get(
+//					CSSSelectorsList.prototype.optimizedSelectorBufferSchema.bufferUID.start,
+//					2
+//				));
+		TypeManager.masterStyleRegistry.setItem(
 			this.compactedViewOnSelectorsList.getEntry(
-				this.selectorsList[0].selectorStr
+				currentSelector.selectorStr
 				// we unpack 16 and 32 bits integers in the CSSCompactedSelector type (in fact it's a MemorySingleBuffer)
 				).get(
 					CSSSelectorsList.prototype.optimizedSelectorBufferSchema.bufferUID.start,
 					2
 				),
-		this
-	);
+			this
+		);
+	}, this);
+	
 }
 Style.prototype = {};
 

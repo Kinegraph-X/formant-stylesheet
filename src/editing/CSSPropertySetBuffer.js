@@ -10,7 +10,7 @@ var CSSPropertyDescriptors = require('src/editing/CSSPropertyDescriptors');
 var StylePropertyEnhancer = require('src/editing/StylePropertyEnhancer');
 var stylePropertyConverter = new StylePropertyEnhancer();
 
-var parser = require('src/parsers/css-parser_forked');
+var parser = require('src/parsers/css-parser_forked_normalized');
 
 /**
  * @constructor CSSPropertySetBuffer
@@ -71,13 +71,15 @@ CSSPropertySetBuffer.prototype.getProp = function(propName) {
 }
 
 CSSPropertySetBuffer.prototype.setPropFromBuffer = function(propName, propBuffer) {
-	var posForProp;
+	var resolvedPropName = propName, posForProp;
 	
-	if (CSSPropertyDescriptors.all[propName].prototype.isShorthand) {
-		this.setPropFromShorthand(propName, propBuffer.getValueAsString());
+	if (CSSPropertyDescriptors.all[resolvedPropName].prototype.isShorthand) {
+		this.setPropFromShorthand(resolvedPropName, propBuffer.getValueAsString());
 	}
 	else {
-		if ((posForProp = this.getPosForProp(propName) * this.itemSize) < 0)
+		if (CSSPropertyDescriptors.all[resolvedPropName].prototype.isAlias)
+			resolvedPropName = CSSPropertyDescriptors.all[resolvedPropName].prototype.expandedPropNames[0];
+		if ((posForProp = this.getPosForProp(resolvedPropName) * this.itemSize) < 0)
 			return;
 		this._buffer.set(propBuffer._buffer, posForProp);
 	}
@@ -85,73 +87,134 @@ CSSPropertySetBuffer.prototype.setPropFromBuffer = function(propName, propBuffer
 
 CSSPropertySetBuffer.prototype.setPropFromShorthand = function(propName, value) {
 	if (CSSPropertyDescriptors.all[propName].prototype.mayBeAbbreviated) {
-//		console.log(propName, value);
 		this.handleAbbreviatedValues(propName, value);
 		return;
 	}
 	
-	// FIXME: we may use here the css-parser instead of a regex
-	var tmpBuffer, valueList = value.match(/[a-zA-Z0-9#\/:.,%-]+/g), expandedPropertyName;
+	// We rely on the order of CSSPropertyDescriptors.all[propName].prototype.expandedPropNames
+	// the following code won't work for all use-cases
+	var tmpBuffer, expandedPropertyName;
+	var valueList = this.sortValuesFromShorthand(propName, value, value);
 	
-	if (!valueList)
-		return;
+//	if (!valueList)
+//		return;
 	
 	// TODO: optimization : this may be passed a real result from the parser => benchmark
+//	console.log('setPropFromShorthand', valueList);
 	valueList.forEach(function(val, key) {
-		// FIXME: the CSS pec allows passing expandedPropNames in any order.
-		//			Then, the actual type of a given property-token defines which property it is.
-		// 			As for now, we rely on the order of CSSPropertyDescriptors.all[propName].prototype.expandedPropNames
-		//			the following code won't work for all use-cases
+		if (val === null)
+			return;
 		expandedPropertyName = CSSPropertyDescriptors.all[propName].prototype.expandedPropNames[key];
 		tmpBuffer = new CSSPropertyBuffer(null, expandedPropertyName);
-//		console.log(expandedPropertyName, val);
-		tmpBuffer.parseAndSetValue(val);
+		
+		tmpBuffer.setValue(val);
+//		console.log(tmpBuffer.bufferedValueToString());
 		this.setPropFromBuffer(expandedPropertyName, tmpBuffer);
 	}, this);
 }
 
+CSSPropertySetBuffer.prototype.sortValuesFromShorthand = function(propName, value) {
+	
+	if (CSSPropertyDescriptors.splitted.boxModelAttributes[propName]) {
+		var tokenTypeFromParser;
+		var parsedValue = parser.parseAListOfComponentValues(value);
+		var sortedProp = {dimension : null, ident : null, hash : null}
+
+		parsedValue.forEach(function(val) {
+			tokenTypeFromParser = Object.getPrototypeOf(val).tokenType;
+			switch (tokenTypeFromParser) {
+				case 'WHITESPACE' :
+				case 'COMMA' :
+						break;
+				case 'NUMBER' :
+					sortedProp.dimension = val.value;
+					break;
+				case 'DIMENSION' :
+						sortedProp.dimension = val.repr;
+						break;
+				case 'PERCENTAGE' :
+						sortedProp.dimension = val.repr;
+						break;
+				case 'HASH' :
+						sortedProp.hash = val.repr;
+						break;
+				case 'IDENT' :
+						sortedProp.ident = val.repr;
+						break;
+				case 'FUNCTION' : 
+						sortedProp.hash = this.functionToCanonical(val).repr;
+				default : break;
+			}
+		}, this);
+		return Object.values(sortedProp);
+	}
+//	else if (propName === 'background') {
+//		
+//	} etc.
+	else {
+		return value.match(/[a-zA-Z0-9#\/:.,%-]+/g) || [];
+	}
+}
+
 CSSPropertySetBuffer.prototype.handleAbbreviatedValues = function(propName, value) {
-	var offset = 0, tmpBuffer, valueList = parser.parseAListOfComponentValues(value.trim()), expandedPropertyName;
-//	console.log(value.trim());
+	var offset = 0, tmpBuffer, valueList = value.split(' '), expandedPropertyName;
+	// valueList = parser.parseAListOfComponentValues(value.trim())
 	if (valueList.length === 1) {
 		CSSPropertyDescriptors.all[propName].prototype.expandedPropNames.forEach(function(expandedPropertyName, key) {
 			tmpBuffer = new CSSPropertyBuffer(null, expandedPropertyName);
-			tmpBuffer.setValue([valueList[0]]);
+			tmpBuffer.setValue(valueList[0]);
 			this.setPropFromBuffer(expandedPropertyName, tmpBuffer);
 		}, this);
 	}
-	else if (valueList.length === 3) {			// the property shall include 1 whitespace
+	else if (valueList.length === 2) {			// the property shall include 1 whitespace
 		CSSPropertyDescriptors.all[propName].prototype.expandedPropNames.forEach(function(expandedPropertyName, key) {
 			tmpBuffer = new CSSPropertyBuffer(null, expandedPropertyName);
 			if (key === 0 || key === 2)
-				tmpBuffer.setValue([valueList[0]]);
+				tmpBuffer.setValue(valueList[0]);
 			else
-				tmpBuffer.setValue([valueList[2]]);
+				tmpBuffer.setValue(valueList[1]);
 			this.setPropFromBuffer(expandedPropertyName, tmpBuffer);
 		}, this);
 	}
-	else if (valueList.length === 5) {			// the property shall include 2 whitespace
+	else if (valueList.length === 3) {			// the property shall include 2 whitespace
 		CSSPropertyDescriptors.all[propName].prototype.expandedPropNames.forEach(function(expandedPropertyName, key) {
 			tmpBuffer = new CSSPropertyBuffer(null, expandedPropertyName);
 			if (key !== 3)
-				tmpBuffer.setValue([valueList[key + offset]]);
+				tmpBuffer.setValue(valueList[key]);
 			else
-				tmpBuffer.setValue([valueList[2]]);
-			offset++;
+				tmpBuffer.setValue(valueList[1]);
+//			offset++;
 			this.setPropFromBuffer(expandedPropertyName, tmpBuffer);
 		}, this);
 	}
-	else if (valueList.length === 7) {			// the property shall include 3 whitespace
+	else if (valueList.length === 4) {			// the property shall include 3 whitespace
 		CSSPropertyDescriptors.all[propName].prototype.expandedPropNames.forEach(function(expandedPropertyName, key) {
 			tmpBuffer = new CSSPropertyBuffer(null, expandedPropertyName);
-			tmpBuffer.setValue(valueList[key + offset]);
-			offset++;
+			tmpBuffer.setValue(valueList[key]);
+//			offset++;
 			this.setPropFromBuffer(expandedPropertyName, tmpBuffer);
 		}, this);
 	}
 }
 
-CSSPropertySetBuffer.prototype.getPropertyGroupAsObject = function(groupName) {
+CSSPropertySetBuffer.prototype.getDefinedPropertiesAsAttributesList = function() {
+	var propName;
+	var c = 0;
+	
+	var ret = {};
+	
+	for (var i = 0, end = i + this.propertiesStaticArray.length * this.itemSize; i < end; i += this.itemSize) {
+		propName = this.propertiesStaticArray[c];
+		if (this._buffer[i + CSSPropertyBuffer.prototype.bufferSchema.isInitialValue.start] === 0) {
+			ret[propName] = this.getProp(propName).getValueAsString();
+		}
+		c++;
+	}
+	
+	return ret;
+}
+
+CSSPropertySetBuffer.prototype.getPropertyGroupAsBufferMap = function(groupName) {
 	var propName;
 	var c = 0;
 	var boundaries = this.propertiesAccessGroupsBoundaries[groupName];
@@ -226,6 +289,26 @@ CSSPropertySetBuffer.prototype.setGroupIsInitialValue = function(groupName, bool
 	}
 }
 
+CSSPropertySetBuffer.prototype.getIsInitialValue = function(propName) {
+	var propBuffer = this.getProp(propName);
+	return propBuffer.getIsInitialValue();
+}
+
+CSSPropertySetBuffer.prototype.getIsInitialValueAsBool = function(propName) {
+	var propBuffer = this.getProp(propName);
+	return propBuffer.getIsInitialValueAsBool();
+}
+
+CSSPropertySetBuffer.prototype.getTokenTypeForPropAsString = function(propName) {
+	var propBuffer = this.getProp(propName);
+	return propBuffer.tokenTypeToString();
+}
+
+CSSPropertySetBuffer.prototype.getTokenTypeForPropAsConstant = function(propName) {
+	var propBuffer = this.getProp(propName);
+	return propBuffer.tokenTypeToNumber();
+}
+
 // getPropAsString() is an alias for bufferedValueToString()
 // TODO: unify
 CSSPropertySetBuffer.prototype.getPropAsString = function(propName) {
@@ -240,13 +323,13 @@ CSSPropertySetBuffer.prototype.getPropAsNumber = function(propName) {
 
 CSSPropertySetBuffer.prototype.bufferedValueToString = function(propName) {
 	var propBuffer = this.getProp(propName);
-	return propBuffer.bufferedValueToString(propName);
+	return propBuffer.bufferedValueToString();
 }
 
 CSSPropertySetBuffer.prototype.bufferedValueToNumber = function(propName) {
 	var propBuffer = this.getProp(propName);
 //	console.log(propBuffer);
-	return propBuffer.bufferedValueToNumber(propName);
+	return propBuffer.bufferedValueToNumber();
 }
 
 
@@ -267,9 +350,9 @@ var CachedCSSPropertySetBuffer = (function() {
 //			console.log(attrName, CSSPropertyDescriptors.all[attrName].prototype.initialValue);
 			packedCSSProperty = new CSSPropertyBuffer(null, attrName);
 			packedCSSProperty.setValue(
-				parser.parseAListOfComponentValues(
+//				parser.parseAListOfComponentValues(
 					CSSPropertyDescriptors.all[attrName].prototype.initialValue
-				)
+//				)
 			);
 			propertySetBuffer.setPropFromBuffer(attrName, packedCSSProperty);
 		});
