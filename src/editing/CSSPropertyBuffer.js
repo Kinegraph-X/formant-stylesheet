@@ -139,6 +139,8 @@ CSSPropertyBuffer.prototype.populate = function(tokenType, value) {
 			this.bufferSchema.propertyType.start
 		);
 	// value
+	// FIXME: floats are NOT handled by our CSSPropertyBuffer type, and flexGrow may be float
+	// For now, it acts like if we had parseInt the number
 	this._buffer.set(
 			valueBuf,
 			this.bufferSchema.propertyValue.start
@@ -155,8 +157,6 @@ CSSPropertyBuffer.prototype.populate = function(tokenType, value) {
 		this.bufferSchema.reprLength.start
 	);
 	// unit
-	if (!this.Units[value.unit])
-		console.log('value.unit', value.unit);
 	this._buffer.set(
 			[value.unit ? this.Units[value.unit].idx : 0],
 			this.bufferSchema.unit.start
