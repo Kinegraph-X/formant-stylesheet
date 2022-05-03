@@ -260,8 +260,8 @@ CSSPropertyBuffer.prototype.getValueAsNumber = function() {
 // bufferedValueToString() is an alias for getValueAsString()
 // TODO: unify
 CSSPropertyBuffer.prototype.bufferedValueToString = function() {
-	var start = this.bufferSchema['repr'].start, end = start + this.bufferSchema['repr'].length,
-		strLengthIdx = this.bufferSchema['reprLength'].start;
+	var start = this.bufferSchema.repr.start, end = start + this.bufferSchema.repr.length,
+		strLengthIdx = this.bufferSchema.reprLength.start;
 //	console.log(start, end, this._buffer.slice(start, end));
 	return this._buffer.slice(start, end).bufferToString(this._buffer[strLengthIdx]);
 }

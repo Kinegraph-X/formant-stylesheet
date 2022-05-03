@@ -332,6 +332,23 @@ CSSPropertySetBuffer.prototype.bufferedValueToNumber = function(propName) {
 	return propBuffer.bufferedValueToNumber();
 }
 
+CSSPropertySetBuffer.prototype.fastBufferedValueToString = function(propName) {
+	var propIndex = this.getPosForProp(propName) * this.itemSize,
+		propLength = this._buffer[propIndex + CSSPropertyBuffer.prototype.bufferSchema.reprLength.start],
+		propOffset = CSSPropertyBuffer.prototype.bufferSchema.repr.start,
+		propStartIndex = propIndex + propOffset,
+		propEndIndex = propStartIndex + propLength;
+	return this._buffer.slice(propStartIndex, propEndIndex).bufferToString(propLength);
+}
+
+CSSPropertySetBuffer.prototype.fastBufferedValueToNumber = function(propName) {
+	var propIndex = this.getPosForProp(propName) * this.itemSize,
+		propOffset = CSSPropertyBuffer.prototype.bufferSchema.propertyValue.start,
+		propStartIndex = propIndex + propOffset,
+		propEndIndex = propStartIndex + CSSPropertyBuffer.prototype.bufferSchema.propertyValue.length;
+	return CSSPropertyBuffer.prototype.byteTuppleTo16bits(this._buffer.slice(propStartIndex, propEndIndex));
+}
+
 
 
 

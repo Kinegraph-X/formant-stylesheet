@@ -312,7 +312,7 @@ CSSSelectorComponent.prototype.getPseudoClassConstant = function(componentAsStr)
 		this.compoundValues = this.getCompoundValues(newComponentAsStr);
 		
 		var microSyntax;
-		if ((microSyntax = match[3].match(this.pseudoClassMicroSyntaxFormat))) {
+		if ((microSyntax = match[3].match(this.pseudoClassMicroSyntaxFormat)) && microSyntax[0]) {
 			this.pseudoClassMicroSyntax = [microSyntax[1] ? parseInt(microSyntax[1].slice(0, -1)) : 0, microSyntax[3] ? parseInt(microSyntax[3]) : 0];
 			return this.pseudoClassConstants[match[2].hyphensToDromedar() + 'ANpB'];
 		}
