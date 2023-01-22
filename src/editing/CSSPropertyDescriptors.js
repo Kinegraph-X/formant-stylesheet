@@ -177,7 +177,7 @@ SplittedCSSPropertyDescriptors.boxModelAttributes = {
 	borderInlineStartColor : CSSPropertyDescriptorFactory('borderInlineStartColor', '#000000', false, [], false, false),
 	borderInlineEndColor : CSSPropertyDescriptorFactory('borderInlineEndColor', '#000000', false, [], false, false),
 
-	borderRadius : CSSPropertyDescriptorFactory('borderRadius', '', true, ['borderStartStartRadius', 'borderEndStartRadius', 'borderEndEndRadius', 'borderEndStartRadius'], false, false),
+	borderRadius : CSSPropertyDescriptorFactory('borderRadius', '', true, ['borderStartStartRadius', 'borderEndStartRadius', 'borderEndEndRadius', 'borderStartEndRadius'], true, false),
 	// dash-prefixed properties (specific to a UA) are rendered with an Uppercase first letter by our translation function
 	MozBorderRadius : CSSPropertyDescriptorFactory('MozBorderRadius', '', true, ['borderStartStartRadius', 'borderEndStartRadius', 'borderEndEndRadius', 'borderEndStartRadius'], false, false),
 	WebkitBorderRadius : CSSPropertyDescriptorFactory('WebkitBorderRadius', '', true, ['borderStartStartRadius', 'borderEndStartRadius', 'borderEndEndRadius', 'borderEndStartRadius'], false, false),

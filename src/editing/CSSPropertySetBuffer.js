@@ -86,13 +86,20 @@ CSSPropertySetBuffer.prototype.setPropFromBuffer = function(propName, propBuffer
 }
 
 CSSPropertySetBuffer.prototype.setPropFromShorthand = function(propName, value) {
+	
+//	console.log('	', propName, value);
 	if (CSSPropertyDescriptors.all[propName].prototype.mayBeAbbreviated) {
+//		console.log('setPropFromShorthand', propName, value);
 		this.handleAbbreviatedValues(propName, value);
 		return;
 	}
 	
+//	console.log('	setPropFromShorthand', propName, value);
+	
+	// FIXME: (IMPROVEME)
 	// We rely on the order of CSSPropertyDescriptors.all[propName].prototype.expandedPropNames
-	// the following code won't work for all use-cases
+	// The sorting function won't work for all use-cases,
+	// as it relies on the fact that shorthands contains uniquely typed values in the sequence of tokens
 	var tmpBuffer, expandedPropertyName;
 	var valueList = this.sortValuesFromShorthand(propName, value, value);
 	
@@ -100,15 +107,21 @@ CSSPropertySetBuffer.prototype.setPropFromShorthand = function(propName, value) 
 //		return;
 	
 	// TODO: optimization : this may be passed a real result from the parser => benchmark
-//	console.log('setPropFromShorthand', valueList);
+//	console.log('		setPropFromShorthand', propName, valueList);
 	valueList.forEach(function(val, key) {
 		if (val === null)
 			return;
+			
 		expandedPropertyName = CSSPropertyDescriptors.all[propName].prototype.expandedPropNames[key];
-		tmpBuffer = new CSSPropertyBuffer(null, expandedPropertyName);
+		if (CSSPropertyDescriptors.all[expandedPropertyName].prototype.mayBeAbbreviated) {
+			this.handleAbbreviatedValues(expandedPropertyName, val);
+			return;
+		}
 		
+		tmpBuffer = new CSSPropertyBuffer(null, expandedPropertyName);
+//		console.log('	', expandedPropertyName, val);
 		tmpBuffer.setValue(val);
-//		console.log(tmpBuffer.bufferedValueToString());
+//		console.log('		', tmpBuffer.bufferedValueToString());
 		this.setPropFromBuffer(expandedPropertyName, tmpBuffer);
 	}, this);
 }
@@ -119,15 +132,23 @@ CSSPropertySetBuffer.prototype.sortValuesFromShorthand = function(propName, valu
 		var tokenTypeFromParser;
 		var parsedValue = parser.parseAListOfComponentValues(value);
 		var sortedProp = {dimension : null, ident : null, hash : null}
-
 		parsedValue.forEach(function(val) {
 			tokenTypeFromParser = Object.getPrototypeOf(val).tokenType;
+//			console.log('	', tokenTypeFromParser);
 			switch (tokenTypeFromParser) {
 				case 'WHITESPACE' :
 				case 'COMMA' :
 						break;
 				case 'NUMBER' :
-					sortedProp.dimension = val.value;
+					// There's an ambiguity in the CSS spec:
+					// The parser is designed to assume that every integer/float
+					// non-followed by an alphabetic char is a number (css-parser.js - line 254 && https://www.w3.org/TR/css-syntax-3/#consume-a-numeric-token).
+					// But border-width may only be of type <length>,
+					// and then is a dimension => it has to be an ident-like, then it is of type string
+					if (propName === 'border')
+						sortedProp.dimension = val.repr;
+					else
+						sortedProp.dimension = val.value;
 					break;
 				case 'DIMENSION' :
 						sortedProp.dimension = val.repr;
@@ -142,7 +163,7 @@ CSSPropertySetBuffer.prototype.sortValuesFromShorthand = function(propName, valu
 						sortedProp.ident = val.repr;
 						break;
 				case 'FUNCTION' : 
-						sortedProp.hash = this.functionToCanonical(val).repr;
+						sortedProp.hash = CSSPropertyBuffer.prototype.functionToCanonical.call(null, val).repr;
 				default : break;
 			}
 		}, this);

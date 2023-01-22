@@ -247,6 +247,13 @@ Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'LocallyEffecti
 Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'BoxModelAttributes', {value: Object.keys(CSSPropertyDescriptors.splitted.boxModelAttributes)});
 Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'StrictlyLocalAttributes', {value: Object.keys(CSSPropertyDescriptors.splitted.strictlyLocalAttributes)});
 
+/**
+ * This function ignores attributes depending on the fact they pertain to a certain category of CSS props  :
+ * InheritedAttributes, BoxModelAttributes, and so on...
+ * and assign the remaining ones to the embedded CSSPropertySetBuffer
+ * It also logs a warning if we encounter a non-supported CSS prop
+ * (for now, we're not aimed at supporting the entire spec)
+ */
 Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'disambiguateAttributes', {
 	value: function(attributes) {
 		var self = this, definedAttributes = Object.keys(attributes), packedCSSProperty;
@@ -257,10 +264,14 @@ Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'disambiguateAt
 					console.warn('Unsupported CSS Property:', attrName);
 					return;
 				}
+				else if (self[self.purpose].indexOf(attrName) < 0)
+					return;
+					
 				packedCSSProperty = new CSSPropertyBuffer(null, attrName);
 				packedCSSProperty.setValue(
 					attributes[attrName]
 				);
+
 				// Set the isInitialValue flag to false
 				packedCSSProperty._buffer.set([0], CSSPropertyBuffer.prototype.bufferSchema.isInitialValue.start);
 				
@@ -420,12 +431,27 @@ AdvancedAttributesListFactory.prototype = {}
 
 Object.defineProperty(AdvancedAttributesListFactory.prototype, 'get', {
 	value: function(attr) {
-//		return this.stdAttributes.get(attr);
+		var propBuffer;
+		for (var propGroup in CSSPropertyDescriptors.splitted) {
+			if (CSSPropertyDescriptors.splitted[propGroup][attr]) {
+				return this[propGroup].CSSPropertySetBuffer.bufferedValueToString(attr);
+			}
+		}
 	}
 });
 Object.defineProperty(AdvancedAttributesListFactory.prototype, 'set', {
 	value: function(attr, value) {
-//		this.stdAttributes.set(attr, value);
+		if (attr === 'borderLeft')
+			console.log('setAttribute', value);
+		
+		var propBuffer;
+		for (var propGroup in CSSPropertyDescriptors.splitted) {
+			if (CSSPropertyDescriptors.splitted[propGroup][attr]) {
+				propBuffer = new CSSPropertyBuffer();
+				propBuffer.setValue(value);
+				this[propGroup].CSSPropertySetBuffer.setPropFromBuffer(attr, propBuffer);
+			}
+		}
 	}
 });
 // FIXME: should update all partial lists down the object

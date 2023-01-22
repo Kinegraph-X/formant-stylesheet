@@ -9,8 +9,9 @@ var GeneratorFor16bitsInt = require('src/core/UIDGenerator').GeneratorFor16bitsI
 //var CSSPropertyDescriptors = require('src/editing/CSSPropertyDescriptors');
 var parser = require('src/parsers/css-parser_forked_normalized');
 
-var CSSPropertyBuffer = function(initialLoad) {
+var CSSPropertyBuffer = function(initialLoad, propName) {
 	this.objectType = 'CSSPropertyBuffer';
+	this.propName = propName;
 	this._buffer = new Uint8Array(initialLoad || this.bufferSchema.size);
 	
 //	if (typeof initialLoad === 'undefined' || initialLoad === null
@@ -47,14 +48,15 @@ CSSPropertyBuffer.prototype.setValue = function(value) {
 	// => shorthands are then handled (expanded) in CSSPropertySetBuffer.setPropFromShorthand()
 	// => abbreviated props are also handled (in a branch) of CSSPropertySetBuffer.setPropFromShorthand()
 	
-	if (!/\s/.test(value.trim()) || /[\(\)]/.test(value.trim())) {
+	if (!/\s/.test(value.trim())) {
 		var parsedValue = parser.parseAListOfComponentValues(value.trim());
 		if (!parsedValue.length)
 			return;
-		if (Object.getPrototypeOf(parsedValue[0]).tokenType === 'WHITESPACE')
-			console.log(parsedValue);
+//		if (Object.getPrototypeOf(parsedValue[0]).tokenType === 'WHITESPACE')
+//			console.log(parsedValue);
+
 		tokenType = Object.getPrototypeOf(parsedValue[0]).tokenType.capitalizeFirstChar() + 'Token';
-//		console.log(tokenType);
+
 		if (tokenType === 'FunctionToken')
 			valueAsParsed = this.functionToCanonical(parsedValue[0]);
 		else
@@ -139,7 +141,8 @@ CSSPropertyBuffer.prototype.populate = function(tokenType, value) {
 			this.bufferSchema.propertyType.start
 		);
 	// value
-	// FIXME: floats are NOT handled by our CSSPropertyBuffer type, and flexGrow may be float
+	// FIXME: floats are NOT handled by our CSSPropertyBuffer type,
+	// and flexGrow, font[em], and even dimensions may be float
 	// For now, it acts like if we had parseInt the number
 	this._buffer.set(
 			valueBuf,
