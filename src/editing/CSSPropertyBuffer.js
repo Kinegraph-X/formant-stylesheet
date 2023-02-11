@@ -401,7 +401,7 @@ Object.defineProperty(CSSPropertyBuffer.prototype, 'TokenTypes', {
 });
 
 Object.defineProperty(CSSPropertyBuffer.prototype, 'stdStrLength', {
-	value : 57
+	value : 89
 });
 
 Object.defineProperty(CSSPropertyBuffer.prototype, 'ValueTypes', {
