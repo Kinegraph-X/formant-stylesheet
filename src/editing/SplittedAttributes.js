@@ -249,8 +249,14 @@ Object.defineProperty(SplittedAttributesListBaseClass.prototype, 'StrictlyLocalA
 
 /**
  * This function ignores attributes depending on the fact they pertain to a certain category of CSS props  :
- * InheritedAttributes, BoxModelAttributes, and so on...
- * and assign the remaining ones to the embedded CSSPropertySetBuffer
+ * 
+ * InheritedAttributes,
+ * BoxModelAttributes,
+ * LocallyEffectiveAttributes,
+ * StrictlyLocalAttributes
+ * 
+ * and assign the filtered ones to the embedded CSSPropertySetBuffer
+ * 
  * It also logs a warning if we encounter a non-supported CSS prop
  * (for now, we're not aimed at supporting the entire spec)
  */
@@ -495,10 +501,10 @@ Object.defineProperty(AdvancedAttributesListFactory, 'fromAST', {
 		var name, attrList = {};
 		// ast is an array of declarations
 		ast.forEach(function(declaration) {
-			// NOT YET CSSOM...
-
-			if (declaration.value && typeof declaration.value !== 'number') {	// Array.isArray(declaration.value)
-				name = declaration.name.hyphensToDromedar();
+			// YET CSSOM ? it seems...
+			
+			name = declaration.name.hyphensToDromedar();
+			if (CSSPropertyDescriptors.all.hasOwnProperty(name)) {
 				attrList[name] = declaration.value.reduce(AdvancedAttributesListFactory.flattenDeclarationValues, '');
 			}
 		});

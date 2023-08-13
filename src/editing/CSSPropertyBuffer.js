@@ -3,7 +3,7 @@
  */
 
 
-//var TypeManager = require('src/core/TypeManager');
+var TypeManager = require('src/core/TypeManager');
 var BinarySchemaFactory = require('src/core/BinarySchema');
 var GeneratorFor16bitsInt = require('src/core/UIDGenerator').GeneratorFor16bitsInt;
 //var CSSPropertyDescriptors = require('src/editing/CSSPropertyDescriptors');
@@ -57,11 +57,15 @@ CSSPropertyBuffer.prototype.setValue = function(value) {
 
 		tokenType = Object.getPrototypeOf(parsedValue[0]).tokenType.capitalizeFirstChar() + 'Token';
 
-		if (tokenType === 'FunctionToken')
+		if (tokenType === 'FunctionToken') {
+//			console.log('CSS function found');
 			valueAsParsed = this.functionToCanonical(parsedValue[0]);
+		}
 		else
 			valueAsParsed = parsedValue[0]; //this.fixValueFromParser(parsedValue[0]);
-//		console.log(valueAsParsed);
+			
+//		if (this.propName === 'backgroundImage')
+//			console.log('valueAsParsed', parsedValue);
 	}
 	else {
 //		concatVal = this.concatenateBackFromParser(parsedValue);
@@ -84,11 +88,24 @@ CSSPropertyBuffer.prototype.setValue = function(value) {
 	this.populate(tokenType, valueAsParsed);
 }
 
-
+// WON'T WORK FOR RELATIVE DIMENSIONS,
+// as, for example, we have no clue of the value of the inherited font-size property for the current property
+//CSSPropertyBuffer.prototype.unitToCanonical = function(valueAsParsed) {
+//	switch(valueAsParsed.unit) {
+//		case 'em' : 
+//			console.log("EM FOUND");
+//			break;
+//		default :
+//			break;
+//	}
+//	
+//	return valueAsParsed;
+//}
 
 CSSPropertyBuffer.prototype.functionToCanonical = function(valueAsParsed) {
 	var value, tokenTypeFromParser;
 	if (valueAsParsed.name === 'rgb' || valueAsParsed.name === 'rgba') {
+//		console.log('rgb found');
 		value = new (LocalTokenFromParserFactory(null, 'HASH'))();
 		value.type = 'hash';
 		value.repr = '#';
@@ -96,9 +113,10 @@ CSSPropertyBuffer.prototype.functionToCanonical = function(valueAsParsed) {
 			tokenTypeFromParser = Object.getPrototypeOf(val).tokenType;
 			if (tokenTypeFromParser === "WHITESPACE" || tokenTypeFromParser === "COMMA")
 				return;
-			else 
+			else
 				value.repr += parseInt(val.value).toString(16).padStart(2, '0');
 		}, this);
+//		console.log(value)
 		return value;
 	}
 	else {
@@ -106,6 +124,16 @@ CSSPropertyBuffer.prototype.functionToCanonical = function(valueAsParsed) {
 		if ((valueAsParsed.name === 'format' || valueAsParsed.name === 'local')
 			|| (valueAsParsed.name === 'animation' || valueAsParsed.name === 'animationName' || valueAsParsed.name === 'animationDuration' || valueAsParsed.name === 'animationIterationCount' || valueAsParsed.name === 'animationIterationFunction' || valueAsParsed.name === 'animationDelay'))
 			return new (LocalTokenFromParserFactory(null, 'UNDEFINED'))();
+		else if (valueAsParsed.name === 'url') {
+			value = new (LocalTokenFromParserFactory(null, 'URL'))();
+			value.type = 'url';
+			value.repr = 'url("';
+			valueAsParsed.value.forEach(function(val) {
+				value.repr += val.repr;
+			});
+			value.repr += '")';
+			return value;
+		}
 		
 		console.warn('CSSPropertyBuffer->functionToCanonical: unsupported function given (' + valueAsParsed.name + ').');
 		return new (LocalTokenFromParserFactory(null, 'UNDEFINED'))();
@@ -244,6 +272,10 @@ CSSPropertyBuffer.prototype.getUnitAsString = function() {
 	return this.unitToString();
 }
 
+CSSPropertyBuffer.prototype.getTokenTypeAsString = function() {
+	return this.TokenTypesAsArray[this._buffer[this.bufferSchema['tokenType'].start]];
+}
+
 CSSPropertyBuffer.prototype.unitToString = function() {
 	return this.UnitsAsArray[this._buffer[this.bufferSchema['unit'].start]];
 }
@@ -253,6 +285,11 @@ CSSPropertyBuffer.prototype.unitToString = function() {
 CSSPropertyBuffer.prototype.getValueAsString = function() {
 	return this.bufferedValueToString();
 }
+
+
+//CSSPropertyBuffer.prototype.getValueAsHash = function() {
+//	return '#' + this.bufferedValueToString();
+//}
 
 // getValueAsNumber() is an alias for bufferedValueToNumber()
 // TODO: unify
@@ -266,6 +303,9 @@ CSSPropertyBuffer.prototype.bufferedValueToString = function() {
 	var start = this.bufferSchema.repr.start, end = start + this.bufferSchema.repr.length,
 		strLengthIdx = this.bufferSchema.reprLength.start;
 //	console.log(start, end, this._buffer.slice(start, end));
+//	var test = this._buffer.slice(start, end).bufferToString(this._buffer[strLengthIdx]);
+//	if (test.slice(0, 1) === '#')
+//		console.log(test);
 	return this._buffer.slice(start, end).bufferToString(this._buffer[strLengthIdx]);
 }
 
@@ -500,6 +540,12 @@ Object.defineProperty(CSSPropertyBuffer.prototype, 'UnitsAsArray', {
 			ret.push(CSSPropertyBuffer.prototype.Units[unitDef].unit)
 		}
 		return ret;
+	})()
+});
+
+Object.defineProperty(CSSPropertyBuffer.prototype, 'TokenTypesAsArray', {
+	value : (function() {
+		return Object.keys(CSSPropertyBuffer.prototype.TokenTypes);
 	})()
 });
 

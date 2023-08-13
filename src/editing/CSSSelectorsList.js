@@ -136,13 +136,13 @@ CSSSelector.prototype.cascadeOnSpecificity = function(rightMost) {
 				return match[0];
 			}
 			else {
-			match = rightMost.match(this.typeIsTag);
-//			(rightMost === ':host' && console.log(rightMost, match));
-			if (match) {
-				this.selectorProofingPartType = this.constants.tagIsProof;
-				return match[0];
+				match = rightMost.match(this.typeIsTag);
+	//			(rightMost === ':host' && console.log(rightMost, match));
+				if (match) {
+					this.selectorProofingPartType = this.constants.tagIsProof;
+					return match[0];
+				}
 			}
-		}
 		}
 	}
 	
@@ -266,8 +266,8 @@ CSSSelectorComponent.prototype.typeIsUniversal = /^\*$/;
 CSSSelectorComponent.prototype.typeIsId = /^#(\w+)/;
 CSSSelectorComponent.prototype.typeIsClass = /^\.([\w-]+)|\[class.?="([\w-]+)"\]/;
 CSSSelectorComponent.prototype.typeIsAttribute = CSSSelectorComponent.prototype.attributesComponent;
-CSSSelectorComponent.prototype.typeIsHost = /^:host/;
-CSSSelectorComponent.prototype.typeIsTag = /^[^\.#\:][\w-]+/;		// was [^\.#\:][-s\w_]+/
+CSSSelectorComponent.prototype.typeIsHost = /^:host$/;
+CSSSelectorComponent.prototype.typeIsTag = /^(?<![\.#\:])[\w_-]+/;		 // Negative lookbehind : (?<!...)
 
 CSSSelectorComponent.prototype.hasPseudoClass = /(?<=[^:]):[\w-]+/;
 CSSSelectorComponent.prototype.pseudoClassTypeFormat = /(.+?):([\w-]+?)\(([\wn+-]+?)\)(.+)?/;

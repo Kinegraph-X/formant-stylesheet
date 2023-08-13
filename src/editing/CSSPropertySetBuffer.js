@@ -2,15 +2,19 @@
  * construct. CSSPropertySetBuffer
  */
 
-//var TypeManager = require('src/core/TypeManager');
+var TypeManager = require('src/core/TypeManager');
 var MemoryMapBuffer = require('src/core/MemoryMapBuffer');
 
 var CSSPropertyBuffer = require('src/editing/CSSPropertyBuffer');
 var CSSPropertyDescriptors = require('src/editing/CSSPropertyDescriptors');
+var FontSizeBuffer = require('src/editing/FontSizeBuffer');
 var StylePropertyEnhancer = require('src/editing/StylePropertyEnhancer');
 var stylePropertyConverter = new StylePropertyEnhancer();
 
 var parser = require('src/parsers/css-parser_forked_normalized');
+
+var TextSizeGetter = require('src/core/TextSizeGetter');
+var textSizeGetter = new TextSizeGetter();
 
 /**
  * @constructor CSSPropertySetBuffer
@@ -76,6 +80,9 @@ CSSPropertySetBuffer.prototype.setPropFromBuffer = function(propName, propBuffer
 	if (CSSPropertyDescriptors.all[resolvedPropName].prototype.isShorthand) {
 		this.setPropFromShorthand(resolvedPropName, propBuffer.getValueAsString());
 	}
+//	else if (propBuffer.getTokenTypeAsString() === 'DimensionToken') {
+//		this.setPropAfterResolvingCanonicalUnits(resolvedPropName, propBuffer)
+//	}
 	else {
 		if (CSSPropertyDescriptors.all[resolvedPropName].prototype.isAlias)
 			resolvedPropName = CSSPropertyDescriptors.all[resolvedPropName].prototype.expandedPropNames[0];
@@ -101,7 +108,7 @@ CSSPropertySetBuffer.prototype.setPropFromShorthand = function(propName, value) 
 	// The sorting function won't work for all use-cases,
 	// as it relies on the fact that shorthands contains uniquely typed values in the sequence of tokens
 	var tmpBuffer, expandedPropertyName;
-	var valueList = this.sortValuesFromShorthand(propName, value, value);
+	var valueList = this.sortValuesFromShorthand(propName, value);
 	
 //	if (!valueList)
 //		return;
@@ -218,6 +225,28 @@ CSSPropertySetBuffer.prototype.handleAbbreviatedValues = function(propName, valu
 	}
 }
 
+CSSPropertySetBuffer.prototype.setPropAfterResolvingCanonicalUnits = function(overridePropBuffer) {
+	var propName = 'fontSize',
+		fontFamily = this.getPropAsString('fontFamily'),
+		fontStyle = this.getPropAsNumber(propName) + this.getUnitAsString(propName) + ' ' + fontFamily,
+		sizeOfM = 0;
+	
+	switch(overridePropBuffer.getUnitAsString()) {
+		case 'em' :
+			sizeOfM = this.getTextDimensions('M', fontStyle);
+//			console.log('NEW SIZE', overridePropBuffer.getValueAsNumber(), sizeOfM, fontStyle);
+			overridePropBuffer.setValue(
+				String(
+					Math.floor(overridePropBuffer.getValueAsNumber() * sizeOfM)
+				) + 'px'
+			);
+			break;
+		default :
+			break;
+	}
+	
+}
+
 CSSPropertySetBuffer.prototype.getDefinedPropertiesAsAttributesList = function() {
 	var propName;
 	var c = 0;
@@ -294,13 +323,71 @@ CSSPropertySetBuffer.prototype.setPropertyGroupFromGroupBuffer = function(groupN
 }
 
 CSSPropertySetBuffer.prototype.overridePropertyGroupFromGroupBuffer = function(groupName, groupBuffer) {
-	var c = 0, boundaries = this.propertiesAccessGroupsBoundaries[groupName];
+//	console.log('called');
+	var inheritedAttributesStr = 'inheritedAttributes',
+		fontSizeStr = 'fontSize',
+		fontFamilyStr = 'fontFamily'; 
+	var c = 0,
+		boundaries = this.propertiesAccessGroupsBoundaries[groupName],
+		tmpPropertyBuffer,
+		fontFamily = '',
+		fontSize = 0;
+	
 	for (var i = boundaries.start * this.itemSize, end = i + boundaries.length * this.itemSize; i < end; i += this.itemSize) {
 		// groupBuffer[c + offset] represents the flag "isInitialValue"
+//		console.log('TokenType', groupBuffer[c + CSSPropertyBuffer.prototype.bufferSchema.tokenType.start])
+//		console.log(i / this.itemSize, this.propertiesStaticArray[i / this.itemSize], fontFamilyStr);
+		// Not optimized way to handle 'em' CSS units (they depend on the size of the letter "M" in the current font-style)
+		// TODO: is there a way to optimize this ?
+		if (groupBuffer[c + CSSPropertyBuffer.prototype.bufferSchema.tokenType.start] === CSSPropertyBuffer.prototype.TokenTypes.DimensionToken) {
+			tmpPropertyBuffer = new CSSPropertyBuffer(null, '');
+			tmpPropertyBuffer._buffer.set(groupBuffer.slice(c, c + this.itemSize), 0);
+			
+			this.setPropAfterResolvingCanonicalUnits(tmpPropertyBuffer);
+			this._buffer.set(tmpPropertyBuffer._buffer, i);
+			
+			c += this.itemSize;
+			continue;
+		}
+		// Handling of the font-sizes caches : we must have the size AND the family to compute a cache
+		// So we trigger cache-building only when we apply styles on a layout node
+		else if (groupName === 	inheritedAttributesStr								// hard-coded for optimization
+			&& this.propertiesStaticArray[i / this.itemSize] === fontFamilyStr
+			&& groupBuffer[c + CSSPropertyBuffer.prototype.bufferSchema.isInitialValue.start] === 0) {
+//			console.error(groupName);
+			
+			fontFamily = groupBuffer.bufferToPartialString(c + CSSPropertyBuffer.prototype.bufferSchema.repr.start);
+			
+			
+			tmpPropertyBuffer = new CSSPropertyBuffer(null, fontFamilyStr);
+			// Get the fontSize from the next Buffer in the loop, as we don't know yet is the local size is the actual size
+			// In the PropertyDescriptors, we chose to have the family before the size
+			tmpPropertyBuffer._buffer.set(groupBuffer.slice(c + this.itemSize, c + this.itemSize * 2), 0);
+			fontSize = tmpPropertyBuffer.getValueAsNumber().toString() + tmpPropertyBuffer.getUnitAsString();
+			
+			// TODO: find in which cases the fonctSize is 0 : seems we apply populateStyles before inheritedStyles
+			if (fontSize === '0')
+				fontSize = this.getPropAsNumber(fontSizeStr) + this.getUnitAsString(fontSizeStr);
+			
+			if (fontSize !== '0') {
+				if (!this.isFontSizeBufferInCache(fontSize, fontFamily))
+					this.addFontSizeBufferToCache(fontSize, fontFamily)
+			}
+		}
+		
 		if (groupBuffer[c + CSSPropertyBuffer.prototype.bufferSchema.isInitialValue.start] === 0)
 			this._buffer.set(groupBuffer.slice(c, c + this.itemSize), i);
 		c += this.itemSize;
 	}
+}
+
+CSSPropertySetBuffer.prototype.isFontSizeBufferInCache = function(fontSize, fontFamily) {
+	return TypeManager.fontSizeBuffersCache.cache.hasOwnProperty(fontSize +' ' + fontFamily);
+}
+
+CSSPropertySetBuffer.prototype.addFontSizeBufferToCache = function(fontSize, fontFamily) {
+//	console.log(fontSize, fontFamily);
+	TypeManager.fontSizeBuffersCache.cache[fontSize +' ' + fontFamily] = new FontSizeBuffer(fontSize, fontFamily);
 }
 
 CSSPropertySetBuffer.prototype.setGroupIsInitialValue = function(groupName, bool) {
@@ -342,6 +429,11 @@ CSSPropertySetBuffer.prototype.getPropAsNumber = function(propName) {
 	return this.bufferedValueToNumber(propName);
 }
 
+CSSPropertySetBuffer.prototype.getUnitAsString = function(propName) {
+	var propBuffer = this.getProp(propName);
+	return propBuffer.getUnitAsString();
+}
+
 CSSPropertySetBuffer.prototype.bufferedValueToString = function(propName) {
 	var propBuffer = this.getProp(propName);
 	return propBuffer.bufferedValueToString();
@@ -369,6 +461,26 @@ CSSPropertySetBuffer.prototype.fastBufferedValueToNumber = function(propName) {
 		propEndIndex = propStartIndex + CSSPropertyBuffer.prototype.bufferSchema.propertyValue.length;
 	return CSSPropertyBuffer.prototype.byteTuppleTo16bits(this._buffer.slice(propStartIndex, propEndIndex));
 }
+
+
+
+
+/**
+ * @method getTextDimensions
+ * @param {String} textContent
+ */
+CSSPropertySetBuffer.prototype.getTextDimensions = function(textContent, fontStyle) {
+//	console.log(this.getAugmentedFontStyle());
+	if (!textContent.length)
+		return 0;
+	var textSize = textSizeGetter.getTextSizeDependingOnStyle(
+			textContent,
+			fontStyle
+		);
+	return textSize[0] - textSize[0] / 21;
+}
+
+
 
 
 

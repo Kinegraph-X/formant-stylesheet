@@ -45,7 +45,7 @@ SplittedCSSPropertyDescriptors.inheritedAttributes = {
 	lineHeight : CSSPropertyDescriptorFactory('lineHeight', '', false, [], false, false),
 	color : CSSPropertyDescriptorFactory('color', '#000000', false, [], false, false), // the CSS spec says "depends on the user-agent" : https://www.w3.org/TR/2011/REC-CSS2-20110607/propidx.html#q24.0
 	textOrientation : CSSPropertyDescriptorFactory('textOrientation', '', false, [], false, false),
-	textAlign : CSSPropertyDescriptorFactory('textAlign', '', true, ['textAlignAll', 'textAlignLast'], false, false),
+	textAlign : CSSPropertyDescriptorFactory('textAlign', '', false, ['textAlignAll', 'textAlignLast'], false, false),
 	textAlignAll : CSSPropertyDescriptorFactory('textAlignAll', '', false, [], false, false),
 	textAlignLast : CSSPropertyDescriptorFactory('textAlignLast', '', false, [], false, false),
 	textTransform : CSSPropertyDescriptorFactory('textTransform', '', false, [], false, false),
@@ -194,17 +194,22 @@ SplittedCSSPropertyDescriptors.boxModelAttributes = {
 SplittedCSSPropertyDescriptors.strictlyLocalAttributes = {
 	background : CSSPropertyDescriptorFactory('background', '', true, ['backgroundColor', 'backgroundImage', 'backgroundRepeat', 'backgroundAttachment', 'backgroundPositionTop', 'backgroundPositionLeft'], false, false),
 	backgroundColor : CSSPropertyDescriptorFactory('backgroundColor', 'transparent', false, [], false, false),
-	backgroundPosition : CSSPropertyDescriptorFactory('backgroundPosition', '0% 0%', true, ['backgroundPositionTop', 'backgroundPositionLeft'], false, false),
+	
+	// CSSOM properties are not supported by Browsers for now : change the "isShorthand" (first) flag to true when available
+	backgroundPosition : CSSPropertyDescriptorFactory('backgroundPosition', '0% 0%', false, ['backgroundPositionTop', 'backgroundPositionLeft'], false, false),
 	backgroundPositionTop : CSSPropertyDescriptorFactory('backgroundPositionTop', '0%', false, [], false, false),
 	backgroundPositionLeft : CSSPropertyDescriptorFactory('backgroundPositionLeft', '0%', false, [], false, false),
 	backgroundImage : CSSPropertyDescriptorFactory('backgroundImage', 'none', false, [], false, false),
 	backgroundAttachment : CSSPropertyDescriptorFactory('backgroundAttachment', '', false, [], false, false),
 	backgroundRepeat : CSSPropertyDescriptorFactory('backgroundRepeat', 'repeat', false, [], false, false),
 	boxShadow : CSSPropertyDescriptorFactory('boxShadow', 'none', false, [], false, false),
-	outline : CSSPropertyDescriptorFactory('outline', '', true, ['outlineColor', 'outlineStyle', 'outlineWidth', ], false, false),
-	outlineColor : CSSPropertyDescriptorFactory('outlineColor', 'none', true, ['outlineColorBlockStart', 'outlineColorInlineEnd', 'outlineColorBlockEnd', 'outlineColorInlineStart'], true),
-	outlineStyle : CSSPropertyDescriptorFactory('outlineStyle', 'none', true, ['outlineStyleBlockStart', 'outlineStyleInlineEnd', 'outlineStyleBlockEnd', 'outlineStyleInlineStart'], true),
-	outlineWidth : CSSPropertyDescriptorFactory('outlineWidth', 'none', true, ['outlineWidthBlockStart', 'outlineWidthInlineEnd', 'outlineWidthBlockEnd', 'outlineWidthInlineStart'], true),
+	
+	// CSSOM properties are not supported by Browsers for now : change the "isShorthand" (first) flag to true when available
+	outline : CSSPropertyDescriptorFactory('outline', '', false, ['outlineColor', 'outlineStyle', 'outlineWidth', ], false, false),
+	// not supported by Browsers for now : change the "isShorthand" and "mayBeAbbreviated" (two) flags to true when available
+	outlineColor : CSSPropertyDescriptorFactory('outlineColor', 'none', false, ['outlineColorBlockStart', 'outlineColorInlineEnd', 'outlineColorBlockEnd', 'outlineColorInlineStart'], false),
+	outlineStyle : CSSPropertyDescriptorFactory('outlineStyle', 'none', false, ['outlineStyleBlockStart', 'outlineStyleInlineEnd', 'outlineStyleBlockEnd', 'outlineStyleInlineStart'], false),
+	outlineWidth : CSSPropertyDescriptorFactory('outlineWidth', 'none', false, ['outlineWidthBlockStart', 'outlineWidthInlineEnd', 'outlineWidthBlockEnd', 'outlineWidthInlineStart'], false),
 	
 	outlineColorBlockStart : CSSPropertyDescriptorFactory('outlineColorBlockStart', 0, false, [], false, false),
 	outlineColorInlineEnd : CSSPropertyDescriptorFactory('outlineColorInlineEnd', 0, false, [], false, false),
