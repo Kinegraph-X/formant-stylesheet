@@ -340,6 +340,7 @@ CSSPropertySetBuffer.prototype.overridePropertyGroupFromGroupBuffer = function(g
 		// Not optimized way to handle 'em' CSS units (they depend on the size of the letter "M" in the current font-style)
 		// TODO: is there a way to optimize this ?
 		if (groupBuffer[c + CSSPropertyBuffer.prototype.bufferSchema.tokenType.start] === CSSPropertyBuffer.prototype.TokenTypes.DimensionToken) {
+			// && groupBuffer[c + CSSPropertyBuffer.prototype.bufferSchema.isInitialValue.start] !== 1
 			tmpPropertyBuffer = new CSSPropertyBuffer(null, '');
 			tmpPropertyBuffer._buffer.set(groupBuffer.slice(c, c + this.itemSize), 0);
 			
@@ -375,7 +376,7 @@ CSSPropertySetBuffer.prototype.overridePropertyGroupFromGroupBuffer = function(g
 			}
 		}
 		
-		if (groupBuffer[c + CSSPropertyBuffer.prototype.bufferSchema.isInitialValue.start] === 0)
+		if (groupBuffer[c + CSSPropertyBuffer.prototype.bufferSchema.isInitialValue.start] !== 1)
 			this._buffer.set(groupBuffer.slice(c, c + this.itemSize), i);
 		c += this.itemSize;
 	}
