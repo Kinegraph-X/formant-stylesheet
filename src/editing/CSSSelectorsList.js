@@ -266,7 +266,7 @@ CSSSelectorComponent.prototype.typeIsUniversal = /^\*$/;
 CSSSelectorComponent.prototype.typeIsId = /^#(\w+)/;
 CSSSelectorComponent.prototype.typeIsClass = /^\.([\w-]+)|\[class.?="([\w-]+)"\]/;
 CSSSelectorComponent.prototype.typeIsAttribute = CSSSelectorComponent.prototype.attributesComponent;
-CSSSelectorComponent.prototype.typeIsHost = /^:host$/;
+CSSSelectorComponent.prototype.typeIsHost = /^:host/;	// we removed the $ flag, cause it failed in getType() with :host(.class-name) (but if I remeber well, we had added the $ because it failed in other cases, but which?) 
 CSSSelectorComponent.prototype.typeIsTag = /^(?<![\.#\:])[\w_-]+/;		 // Negative lookbehind : (?<!...)
 
 CSSSelectorComponent.prototype.hasPseudoClass = /(?<=[^:]):[\w-]+/;
@@ -335,7 +335,7 @@ CSSSelectorComponent.prototype.getRelation = function(leftSibbling) {
 	else if (leftSibbling === this.interestingTokens.anyForwardSibblingToken)
 		return this.relationConstants.anyForwardSibbling;
 	else {
-		console.warn('CSSSelectorComponent:', 'leftSibbling => [' + leftSibbling + ']', 'unknown relation case should not be reachable.');
+		console.warn('CSSSelectorComponent,', 'unsupported relation : leftSibbling is /' + leftSibbling + '/,', 'that case should not be reachable. (possible parsing error on our side)');
 		return this.relationConstants.unknown;
 	}
 }
@@ -443,6 +443,7 @@ var CSSSelectorComponentValues = function(completeSelector, tagPart, idPart, cla
 	
 	this.valuesCount = +(tagPart.length > 0) + (+(idPart.length > 0)) + (+(classPart.length > 0 && classPart.length));
 	this.specificity = this.getSpecificity();
+//	console.log(completeSelector, this.idPart, this.idPart, this.classPart, this.tagPart)
 }
 CSSSelectorComponentValues.prototype = {};
 CSSSelectorComponentValues.prototype.objectType = 'CSSSelectorComponentValues';

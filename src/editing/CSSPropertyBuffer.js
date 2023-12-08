@@ -248,24 +248,32 @@ CSSPropertyBuffer.prototype.concatenateBackFromParser = function(parsedValue) {
 	return concatVal;
 }
 
-CSSPropertyBuffer.prototype.getIsInitialValue = function(bool) {
+CSSPropertyBuffer.prototype.getIsInitialValue = function() {
 	return this._buffer[this.bufferSchema.isInitialValue.start];
 }
 
-CSSPropertyBuffer.prototype.getIsInitialValueAsBool = function(bool) {
+CSSPropertyBuffer.prototype.getIsInitialValueAsBool = function() {
 	return !!this._buffer[this.bufferSchema.isInitialValue.start];
 }
 
-CSSPropertyBuffer.prototype.setIsInitialValue = function(bool) {
+CSSPropertyBuffer.prototype.setIsInitialValue = function() {
 	this._buffer.set([1], this.bufferSchema.isInitialValue.start);
 }
 
-CSSPropertyBuffer.prototype.tokenTypeToString = function(bool) {
+CSSPropertyBuffer.prototype.tokenTypeToString = function() {
 	return Object.keys(this.TokenTypes)[this._buffer[this.bufferSchema['tokenType'].start]];
 }
 
-CSSPropertyBuffer.prototype.tokenTypeToNumber = function(bool) {
+CSSPropertyBuffer.prototype.tokenTypeToNumber = function() {
 	return this._buffer[this.bufferSchema['tokenType'].start];
+}
+
+CSSPropertyBuffer.prototype.getValueTypeAsString = function() {
+	return Object.keys(this.ValueTypes)[this._buffer[this.bufferSchema['propertyType'].start]];
+}
+
+CSSPropertyBuffer.prototype.getValueTypeAsNumber = function() {
+	return this._buffer[this.bufferSchema['propertyType'].start];
 }
 
 CSSPropertyBuffer.prototype.getUnitAsString = function() {
@@ -276,9 +284,23 @@ CSSPropertyBuffer.prototype.getTokenTypeAsString = function() {
 	return this.TokenTypesAsArray[this._buffer[this.bufferSchema['tokenType'].start]];
 }
 
+CSSPropertyBuffer.prototype.getTokenTypeAsNumber = function() {
+	return this._buffer[this.bufferSchema['tokenType'].start];
+}
+
 CSSPropertyBuffer.prototype.unitToString = function() {
 	return this.UnitsAsArray[this._buffer[this.bufferSchema['unit'].start]];
 }
+
+CSSPropertyBuffer.prototype.setUnit = function(unit) {
+	var idxOfUnit = this.UnitsAsArray.indexOf(unit);
+	if (idxOfUnit === -1)
+		return;
+	this._buffer.set([idxOfUnit], this.bufferSchema.unit.start);
+}
+
+
+
 
 // getValueAsString() is an alias for bufferedValueToString()
 // TODO: unify

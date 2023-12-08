@@ -10,7 +10,7 @@ var TextSizeGetter = require('src/core/TextSizeGetter');
  * @constructor FontSizeBuffer
  */
 var FontSizeBuffer = function(fontSize, fontFamily) {
-	this._buffer = new Float64Array(new ArrayBuffer(256 * 8));
+	this._buffer = new Float64Array(new ArrayBuffer(341 * 8));
 	this.objectType = 'FontSizeBuffer';
 	
 	// For now, we assume we won't have to fall back on the second typeface of the family
@@ -24,11 +24,10 @@ FontSizeBuffer.prototype = {};
 FontSizeBuffer.prototype.objectType = 'FontSizeBuffer';
 
 FontSizeBuffer.prototype.populateInitialValues = function() {
-//	var c = 32;
-	for (var i = 32, l = 256; i < l; i++) {
-//		console.log(c, String.fromCharCode(c), this.textSizeGetter.getTextWidth(String.fromCharCode(c)), i)
+	// We need to cache values until 340 tio catch "oe"
+	for (var i = 32, l = 340; i < l; i++) {
+//		console.log(i, String.fromCharCode(i), this.textSizeGetter.getTextWidth(String.fromCharCode(i)))
 		this._buffer.set([this.textSizeGetter.getTextWidth(String.fromCharCode(i))], i);
-//		c++;
 	}
 }
 

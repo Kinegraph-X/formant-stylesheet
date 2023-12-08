@@ -81,6 +81,7 @@ SplittedCSSPropertyDescriptors.locallyEffectiveAttributes = {
 	clear : CSSPropertyDescriptorFactory('clear', '', false, [], false, false),
 	float : CSSPropertyDescriptorFactory('float', '', false, [], false, false),
 	position : CSSPropertyDescriptorFactory('position', '', false, [], false, false),
+	resize : CSSPropertyDescriptorFactory('resize', 'none', false, [], false, false),
 	
 	flex : CSSPropertyDescriptorFactory('flex', '0 1 auto', true, ['flexGrow', 'flexShrink', 'flexBasis'], false, false),
 	flexFlow : CSSPropertyDescriptorFactory('flexFlow', 'row nowrap', true, ['flexDirection', 'flexWrap'], false, false),
@@ -93,6 +94,7 @@ SplittedCSSPropertyDescriptors.locallyEffectiveAttributes = {
 	alignItems : CSSPropertyDescriptorFactory('alignItems', 'stretch', false, [], false, false),
 	alignSelf : CSSPropertyDescriptorFactory('alignSelf', 'auto', false, [], false, false),
 	alignContent : CSSPropertyDescriptorFactory('alignContent', 'stretch', false, [], false, false),
+	gap : CSSPropertyDescriptorFactory('gap', 'normal', false, [], false, false),
 	
 	gridTemplateRows : CSSPropertyDescriptorFactory('gridTemplateRows', '', false, [], false, false),
 	gridTemplateColumns : CSSPropertyDescriptorFactory('gridTemplateColumns', '', false, [], false, false),
@@ -197,6 +199,7 @@ SplittedCSSPropertyDescriptors.strictlyLocalAttributes = {
 	
 	// CSSOM properties are not supported by Browsers for now : change the "isShorthand" (first) flag to true when available
 	backgroundPosition : CSSPropertyDescriptorFactory('backgroundPosition', '0% 0%', false, ['backgroundPositionTop', 'backgroundPositionLeft'], false, false),
+	backgroundSize : CSSPropertyDescriptorFactory('backgroundSize', 'auto auto', false, [], false, false),
 	backgroundPositionTop : CSSPropertyDescriptorFactory('backgroundPositionTop', '0%', false, [], false, false),
 	backgroundPositionLeft : CSSPropertyDescriptorFactory('backgroundPositionLeft', '0%', false, [], false, false),
 	backgroundImage : CSSPropertyDescriptorFactory('backgroundImage', 'none', false, [], false, false),

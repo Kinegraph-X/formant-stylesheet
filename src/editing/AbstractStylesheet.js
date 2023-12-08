@@ -89,7 +89,6 @@ AbstractStylesheet.prototype.addRule = function(rule, selector) {
 		console.warn('AbstractStylesheet: constructing a styleRule based on an empty selector', rule, 'Returning...');
 		return;
 	}
-//	console.error(rule);
 	this.rules[selector] = sRule;
 }
 
@@ -136,7 +135,10 @@ AbstractStylesheet.prototype.overrideStyles = function(styleRules) {
 }
 
 AbstractStylesheet.prototype.safeMergeStyleRule = function(selector, rawRule) {
-	this.rules[selector].safeMergeAttributes(rawRule);
+	if (typeof this.rules[selector] !=='undefined')
+		this.rules[selector].safeMergeAttributes(rawRule);
+	else
+		this.addRule(rawRule, selector);
 }
 
 AbstractStylesheet.prototype.clone = function() {
